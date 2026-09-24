@@ -228,6 +228,9 @@ button.add:active{opacity:.8}
     <select id="expCategory" onchange="onCategoryChange()"></select>
     <input id="expVal" placeholder="المبلغ" type="number">
   </div>
+  <div class="formrow" id="liabPayRow" style="display:none">
+    <select id="expLiabilitySelect" style="flex:1" onchange="onLiabilitySelectChange()"></select>
+  </div>
   <div class="formrow">
     <input id="expName" placeholder="تفاصيل المصروف (اختياري)">
     <button class="add" style="flex:1" onclick="addExpense()">إضافة</button>
@@ -289,6 +292,7 @@ const CATS = [
   {key:'transport',     label:'مواصلات',       icon:'🚗', color:'#3b34b5'},
   {key:'groceries',     label:'بقالة',          icon:'🛒', color:'#6334b5'},
   {key:'debts',         label:'ديون',           icon:'🤷', color:'#8c34b5'},
+  {key:'liability_payment', label:'سداد التزام', icon:'🏦', color:'#6b4e2e'},
   {key:'dining',        label:'أكل بره',        icon:'🍽️', color:'#b534b5'},
   {key:'installments',  label:'أقساط',          icon:'💳', color:'#b5348d'},
   {key:'subscriptions', label:'اشتراكات',       icon:'🔄', color:'#b53464'},
@@ -314,11 +318,35 @@ function populateCategorySelect(){
 function onCategoryChange(){
   const cat = document.getElementById('expCategory').value;
   const nameEl = document.getElementById('expName');
-  if(cat === 'other'){
-    nameEl.placeholder = 'تفاصيل المصروف (مطلوب لتصنيف أخرى)';
+  const liabRow = document.getElementById('liabPayRow');
+  if(cat === 'liability_payment'){
+    liabRow.style.display = 'flex';
+    populateLiabilitySelect();
+    onLiabilitySelectChange();
+    nameEl.placeholder = 'تفاصيل إضافية (اختياري)';
   } else {
-    nameEl.placeholder = 'تفاصيل المصروف (اختياري)';
+    liabRow.style.display = 'none';
+    nameEl.placeholder = cat === 'other'
+      ? 'تفاصيل المصروف (مطلوب لتصنيف أخرى)'
+      : 'تفاصيل المصروف (اختياري)';
   }
+}
+function populateLiabilitySelect(){
+  const sel = document.getElementById('expLiabilitySelect');
+  if(!sel) return;
+  if(!state.liabilities.length){
+    sel.innerHTML = '<option value="">لا توجد التزامات مضافة بعد</option>';
+    return;
+  }
+  const prev = sel.value;
+  sel.innerHTML = state.liabilities.map(l=>`<option value="${l.id}">${escapeHtml(l.name)} — متبقي ${fmt(l.value)}</option>`).join('');
+  if(prev && state.liabilities.some(l=>l.id===prev)) sel.value = prev;
+}
+function onLiabilitySelectChange(){
+  const sel = document.getElementById('expLiabilitySelect');
+  const valEl = document.getElementById('expVal');
+  const liab = state.liabilities.find(l=>l.id===sel.value);
+  if(liab && !valEl.value){ valEl.value = liab.value; }
 }
 
 const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -588,6 +616,7 @@ function render(){
   renderList('assetsList','assets');
   renderList('liabList','liabilities');
   renderGold();
+  if(document.getElementById('expCategory').value === 'liability_payment') populateLiabilitySelect();
 
   document.getElementById('monthLabel').textContent = monthLabel(viewMonth);
   document.getElementById('reportMonthLabel').textContent = monthLabel(viewMonth);
@@ -745,15 +774,32 @@ function addExpense(){
     nameEl.focus();
     return;
   }
+  let liabilityId;
+  if(category === 'liability_payment'){
+    const liabSel = document.getElementById('expLiabilitySelect');
+    const liab = state.liabilities.find(l=>l.id===(liabSel && liabSel.value));
+    if(!liab){
+      alert('اختر الالتزام المطلوب سداده');
+      return;
+    }
+    if(amount > liab.value + 0.001){
+      if(!confirm(`المبلغ (${fmt(amount)}) أكبر من المتبقي على "${liab.name}" (${fmt(liab.value)}). هل تريد المتابعة وتصفير الالتزام؟`)) return;
+    }
+    liab.value = Math.max(0, liab.value - amount);
+    liabilityId = liab.id;
+    if(!name) name = 'سداد: ' + liab.name;
+  }
   if(!name) name = catInfo(category).label;
   state.expenses.push({
     id:uid(), name, amount,
     category,
+    liabilityId,
     user: window.currentUser||'أنا',
     date:new Date().toISOString().slice(0,10),
     month: viewMonth
   });
   nameEl.value=''; valEl.value='';
+  if(category === 'liability_payment') populateLiabilitySelect();
   saveState(); render();
 }
 function compressImage(file, maxDim, quality){
