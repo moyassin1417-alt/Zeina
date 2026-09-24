@@ -19,6 +19,7 @@ h1{font-size:1.3rem; margin:0 0 2px}
 .sub{color:var(--sub); font-size:.85rem; margin-bottom:18px}
 .cards{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px}
 .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px}
+.card.wide{grid-column:1 / -1}
 .card .label{font-size:.75rem; color:var(--sub)}
 .card .val{font-size:1.15rem; font-weight:700; margin-top:2px}
 .pos{color:var(--accent2)} .neg{color:var(--danger)}
@@ -151,6 +152,7 @@ button.add:active{opacity:.8}
   <div class="card"><div class="label">إجمالي الالتزامات</div><div class="val" id="topLiab">—</div></div>
   <div class="card"><div class="label">صافي الثروة</div><div class="val" id="netWorth">—</div></div>
   <div class="card"><div class="label">الميزانية المتبقية هذا الشهر</div><div class="val" id="remaining">—</div></div>
+  <div class="card wide"><div class="label">إجمالي المصروف هذا الشهر</div><div class="val" id="topSpent">—</div></div>
 </div>
 
 <div class="section">
@@ -221,10 +223,12 @@ function loadState(){
   }catch(e){}
   return { assets:[], liabilities:[], expenses:[], gold:[], budget:0, myName:'' };
 }
+let dirty = false;
 function saveState(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){
     alert('تعذّر الحفظ — قد تكون مساحة التخزين ممتلئة (خصوصًا بسبب الصور).');
   }
+  dirty = true;
   syncPush();
 }
 
@@ -339,6 +343,12 @@ async function joinSyncBin(){
 }
 async function syncPull(announce){
   if(!syncKey || !syncBin) return;
+  if(dirty && !announce){
+    // Never let a silent background refresh overwrite local changes that
+    // haven't been confirmed saved to the server yet — try to push them first.
+    await syncPush();
+    return;
+  }
   syncing = true; setSyncStatus(false,'جاري التحديث...');
   try{
     const res = await fetch(`https://api.jsonbin.io/v3/b/${syncBin}/latest`, {
@@ -370,9 +380,17 @@ async function syncPush(){
       headers:{'Content-Type':'application/json','X-Master-Key':syncKey},
       body: JSON.stringify(state)
     });
-    if(!res.ok) throw new Error('HTTP '+res.status);
+    if(!res.ok){
+      let msg = 'HTTP '+res.status;
+      try{ const j = await res.json(); if(j && j.message) msg = j.message; }catch(e2){}
+      throw new Error(msg);
+    }
+    dirty = false;
     setSyncStatus(true,'متزامن ✓');
-  }catch(e){ console.error('syncPush error:', e); setSyncStatus(false,'تعذّر رفع التعديل'); }
+  }catch(e){
+    console.error('syncPush error:', e);
+    setSyncStatus(false,'تعذّر رفع آخر تعديل — هيتحاول تاني، بياناتك محفوظة محليًا');
+  }
 }
 function saveLocalOnly(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
@@ -402,6 +420,7 @@ function render(){
   const monthExp = state.expenses.filter(e=>(e.date||'').slice(0,7)===thisMonth);
   const expTotal = monthExp.reduce((s,e)=>s+Number(e.amount||0),0);
   document.getElementById('expTotal').textContent = fmt(expTotal);
+  document.getElementById('topSpent').textContent = fmt(expTotal);
   const remaining = (state.budget||0) - expTotal;
   document.getElementById('remaining').textContent = fmt(remaining);
   document.getElementById('remaining').className = 'val ' + (remaining>=0?'pos':'neg');
@@ -463,7 +482,6 @@ function addItem(key){
   saveState(); render();
 }
 function addExpense(){
-  ensureName();
   const nameEl = document.getElementById('expName'); const valEl = document.getElementById('expVal');
   const name = nameEl.value.trim(); const amount = Number(valEl.value);
   if(!name || !amount) return;
@@ -471,7 +489,28 @@ function addExpense(){
   nameEl.value=''; valEl.value='';
   saveState(); render();
 }
-function addGold(){
+function compressImage(file, maxDim, quality){
+  return new Promise((resolve)=>{
+    const reader = new FileReader();
+    reader.onerror = ()=>resolve(null);
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=>resolve(null);
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w>h && w>maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
+        else if(h>=w && h>maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function addGold(){
   const nameEl = document.getElementById('goldName');
   const weightEl = document.getElementById('goldWeight');
   const valueEl = document.getElementById('goldValue');
@@ -485,11 +524,9 @@ function addGold(){
     saveState(); render();
   };
   if(fileEl.files && fileEl.files[0]){
-    const reader = new FileReader();
-    reader.onload = ()=>{ item.imageData = reader.result; finish(); };
-    reader.onerror = finish;
-    reader.readAsDataURL(fileEl.files[0]);
-  } else { finish(); }
+    item.imageData = await compressImage(fileEl.files[0], 480, 0.7);
+  }
+  finish();
 }
 function removeItem(key,id){
   state[key] = state[key].filter(i=>i.id!==id);
