@@ -32,6 +32,7 @@ h1{font-size:1.3rem; margin:0 0 2px}
 .row .note{font-size:.75rem; color:var(--sub)}
 .row .amt{font-weight:700; font-size:.9rem; white-space:nowrap}
 .row .del{background:none; border:none; color:var(--sub); font-size:1rem; cursor:pointer; padding:2px 6px}
+.row .edit{background:none; border:none; color:var(--sub); font-size:.95rem; cursor:pointer; padding:2px 6px}
 .formrow{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap}
 input,select{
   background:var(--bg); border:1px solid var(--line); color:var(--ink);
@@ -729,8 +730,19 @@ function renderList(elId, key){
     <div class="row">
       <div class="name">${escapeHtml(a.name)}</div>
       <div class="amt">${fmt(a.value)}</div>
+      <button class="edit" onclick="editItemValue('${key}','${a.id}')">✎</button>
       <button class="del" onclick="removeItem('${key}','${a.id}')">✕</button>
     </div>`).join('');
+}
+function editItemValue(key, id){
+  const item = state[key].find(i=>i.id===id);
+  if(!item) return;
+  const v = prompt(`القيمة الجديدة لـ "${item.name}" بالريال`, item.value);
+  if(v === null) return;
+  const num = Number(v);
+  if(isNaN(num) || num < 0){ alert('قيمة غير صحيحة'); return; }
+  item.value = num;
+  saveState(); render();
 }
 function goldItemValue(g){
   return goldPricePerGram21k ? (Number(g.weight||0) * goldPricePerGram21k) : Number(g.value||0);
@@ -841,6 +853,19 @@ async function addGold(){
   finish();
 }
 function removeItem(key,id){
+  if(key === 'expenses'){
+    const exp = state.expenses.find(e=>e.id===id);
+    if(exp && exp.category === 'liability_payment' && exp.liabilityId){
+      const liab = state.liabilities.find(l=>l.id===exp.liabilityId);
+      if(liab){
+        liab.value = Number(liab.value||0) + Number(exp.amount||0);
+        if(!confirm(`حذف سداد "${liab.name}" سيعيد ${fmt(exp.amount)} إلى الالتزام (سيصبح ${fmt(liab.value)}). متابعة؟`)){
+          liab.value -= Number(exp.amount||0);
+          return;
+        }
+      }
+    }
+  }
   state[key] = state[key].filter(i=>i.id!==id);
   saveState(); render();
 }
