@@ -163,7 +163,7 @@ button.add:active{opacity:.8}
 <div class="notice">هذه نسخة محلية: كل التعديلات تُحفظ تلقائيًا في هذا الجهاز، وتتزامن مع باقي الأسرة فقط بعد تفعيل المزامنة أعلاه.</div>
 
 <div class="cards">
-  <div class="card"><div class="label">إجمالي الأصول</div><div class="val" id="topAssets">—</div></div>
+  <div class="card"><div class="label">إجمالي الأصول</div><div class="val" id="topAssets">—</div><div class="note" id="topAssetsGoldNote" style="font-size:11px; opacity:.7; margin-top:2px"></div></div>
   <div class="card"><div class="label">إجمالي الالتزامات</div><div class="val" id="topLiab">—</div></div>
   <div class="card"><div class="label">صافي الثروة</div><div class="val" id="netWorth">—</div></div>
   <div class="card"><div class="label">الميزانية المتبقية هذا الشهر</div><div class="val" id="remaining">—</div></div>
@@ -362,7 +362,7 @@ function saveState(){
   syncPush();
 }
 
-const fmt = n => (Number(n)||0).toLocaleString('ar-SA') + ' ر.س';
+const fmt = n => (Number(n)||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ر.س';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
 
 // ---- Live gold price (XAU, 21K, SAR/gram) ----
@@ -572,6 +572,7 @@ function render(){
   const liabTotal = state.liabilities.reduce((s,a)=>s+Number(a.value||0),0);
   const net = assetsTotal + goldValueTotal - liabTotal;
   document.getElementById('topAssets').textContent = fmt(assetsTotal + goldValueTotal);
+  document.getElementById('topAssetsGoldNote').textContent = goldValueTotal ? `منها ذهب: ${fmt(goldValueTotal)}` : '';
   document.getElementById('topLiab').textContent = fmt(liabTotal);
   document.getElementById('netWorth').textContent = fmt(net);
   document.getElementById('netWorth').className = 'val ' + (net>=0?'pos':'neg');
@@ -579,9 +580,9 @@ function render(){
   document.getElementById('liabTotal').textContent = fmt(liabTotal);
   document.getElementById('goldTotal').textContent = goldValueTotal ? fmt(goldValueTotal) : '';
   document.getElementById('goldWeightTot').textContent = state.gold.length
-    ? `إجمالي الوزن: ${goldWeightTotal.toLocaleString('ar-SA')} جم` : '';
+    ? `إجمالي الوزن: ${goldWeightTotal.toLocaleString('en-US', {maximumFractionDigits:2})} جم` : '';
   document.getElementById('goldPriceInfo').textContent = goldPricePerGram21k
-    ? `سعر جرام الذهب عيار ٢١ اليوم: ${fmt(goldPricePerGram21k)} / جم${goldPriceUpdatedAt ? ' (محدث ' + new Date(goldPriceUpdatedAt).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) + ')' : ''}`
+    ? `سعر جرام الذهب عيار ٢١ اليوم: ${fmt(goldPricePerGram21k)} / جم${goldPriceUpdatedAt ? ' (محدث ' + new Date(goldPriceUpdatedAt).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ')' : ''}`
     : 'جارِ تحديث سعر الذهب...';
 
   renderList('assetsList','assets');
