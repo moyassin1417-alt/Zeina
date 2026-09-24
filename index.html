@@ -9,8 +9,6 @@
   --bg:#f6f3ee; --card:#ffffff; --ink:#20201d; --sub:#6b6558;
   --line:#e6e0d4; --accent:#8a6d3b; --accent2:#3c6e5a; --danger:#a8452f;
   --radius:14px;
-  --cat-groceries:#2a78d6; --cat-gas:#eb6834; --cat-dining:#1baf7a;
-  --cat-bills:#eda100; --cat-fun:#e87ba4; --cat-other:#008300;
 }
 *{box-sizing:border-box}
 body{
@@ -227,26 +225,33 @@ button.add:active{opacity:.8}
   <div class="userpick" id="userPick"></div>
   <div id="expList"></div>
   <div class="formrow">
-    <input id="expName" placeholder="البند (تفاصيل المصروف...)">
+    <select id="expCategory" onchange="onCategoryChange()"></select>
     <input id="expVal" placeholder="المبلغ" type="number">
   </div>
   <div class="formrow">
-    <select id="expCategory">
-      <option value="groceries">🛒 بقالة</option>
-      <option value="gas">⛽ بنزين</option>
-      <option value="dining">🍔 أكل برا</option>
-      <option value="bills">🧾 فواتير</option>
-      <option value="fun">🎉 ترفيه</option>
-      <option value="other" selected>📦 غير ذلك</option>
-    </select>
+    <input id="expName" placeholder="تفاصيل المصروف (اختياري)">
     <button class="add" style="flex:1" onclick="addExpense()">إضافة</button>
   </div>
 </div>
 
 <div class="section">
   <h2>📊 التقارير</h2>
-  <div class="sub" style="margin-bottom:10px">توزيع المصاريف حسب التصنيف — <span id="reportMonthLabel"></span></div>
+
+  <div class="sub" style="margin-bottom:10px">توزيع مصاريف <span id="reportMonthLabel"></span> حسب التصنيف</div>
   <div id="reportList"></div>
+
+  <h2 style="margin-top:20px; border-top:1px solid var(--line); padding-top:14px">📅 ملخص السنة</h2>
+  <div class="monthnav">
+    <button class="navbtn" onclick="changeReportYear(-1)" title="السنة السابقة" style="width:auto; padding:0 10px; font-size:.8rem">السابقة</button>
+    <span class="monthlabel" id="yearLabel"></span>
+    <button class="navbtn" onclick="changeReportYear(1)" title="السنة التالية" style="width:auto; padding:0 10px; font-size:.8rem">التالية</button>
+  </div>
+  <div class="cards" style="margin-bottom:14px">
+    <div class="card"><div class="label">إجمالي مصاريف السنة</div><div class="val" id="yearTotal">—</div></div>
+    <div class="card"><div class="label">أكثر تصنيف صرفت عليه</div><div class="val" id="yearTopCat" style="font-size:.95rem">—</div></div>
+  </div>
+  <div class="sub" style="margin-bottom:8px">مصاريف كل شهر</div>
+  <div id="yearMonthsList"></div>
 </div>
 </div>
 
@@ -279,14 +284,42 @@ function loadState(){
 }
 
 const CATS = [
-  {key:'groceries', label:'بقالة',   icon:'🛒', color:'var(--cat-groceries)'},
-  {key:'gas',       label:'بنزين',   icon:'⛽', color:'var(--cat-gas)'},
-  {key:'dining',    label:'أكل برا', icon:'🍔', color:'var(--cat-dining)'},
-  {key:'bills',     label:'فواتير',  icon:'🧾', color:'var(--cat-bills)'},
-  {key:'fun',       label:'ترفيه',   icon:'🎉', color:'var(--cat-fun)'},
-  {key:'other',     label:'غير ذلك', icon:'📦', color:'var(--cat-other)'}
+  {key:'bills',         label:'فواتير',        icon:'⚡',  color:'#3480b5'},
+  {key:'selfcare',      label:'عناية شخصية',   icon:'💇', color:'#3457b5'},
+  {key:'transport',     label:'مواصلات',       icon:'🚗', color:'#3b34b5'},
+  {key:'groceries',     label:'بقالة',          icon:'🛒', color:'#6334b5'},
+  {key:'debts',         label:'ديون',           icon:'🤷', color:'#8c34b5'},
+  {key:'dining',        label:'أكل بره',        icon:'🍽️', color:'#b534b5'},
+  {key:'installments',  label:'أقساط',          icon:'💳', color:'#b5348d'},
+  {key:'subscriptions', label:'اشتراكات',       icon:'🔄', color:'#b53464'},
+  {key:'zeina',         label:'زينة',           icon:'👼', color:'#b5343c'},
+  {key:'advances',      label:'سلف',            icon:'😔', color:'#b55634'},
+  {key:'jamiyat',       label:'جمعيات',         icon:'🤝', color:'#b57e34'},
+  {key:'rent',          label:'إيجار',          icon:'🏠', color:'#b5a734'},
+  {key:'education',     label:'تعليم',          icon:'📚', color:'#9bb534'},
+  {key:'travel',        label:'سفر',            icon:'✈️', color:'#72b534'},
+  {key:'health',        label:'صحة',            icon:'💊', color:'#49b534'},
+  {key:'shopping',      label:'تسوق',           icon:'🛍️', color:'#34b548'},
+  {key:'admin',         label:'مصاريف إدارية', icon:'🧾', color:'#34b571'},
+  {key:'kids',          label:'أولاد',          icon:'👶', color:'#34b59a'},
+  {key:'fun',           label:'ترفيه',          icon:'🎬', color:'#34a8b5'},
+  {key:'other',         label:'أخرى',           icon:'📦', color:'#7d7669'}
 ];
 function catInfo(key){ return CATS.find(c=>c.key===key) || CATS[CATS.length-1]; }
+function populateCategorySelect(){
+  const sel = document.getElementById('expCategory');
+  if(!sel || sel.options.length) return;
+  sel.innerHTML = CATS.map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
+}
+function onCategoryChange(){
+  const cat = document.getElementById('expCategory').value;
+  const nameEl = document.getElementById('expName');
+  if(cat === 'other'){
+    nameEl.placeholder = 'تفاصيل المصروف (مطلوب لتصنيف أخرى)';
+  } else {
+    nameEl.placeholder = 'تفاصيل المصروف (اختياري)';
+  }
+}
 
 const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 function monthLabel(ym){
@@ -304,6 +337,20 @@ function changeMonth(delta){
   viewMonth = y+'-'+String(m).padStart(2,'0');
   localStorage.setItem('zainah_view_month', viewMonth);
   render();
+}
+
+let reportYear = Number(localStorage.getItem('zainah_report_year')) || new Date().getFullYear();
+function changeReportYear(delta){
+  reportYear += delta;
+  localStorage.setItem('zainah_report_year', String(reportYear));
+  render();
+}
+function yearExpenses(year){
+  const prefix = String(year);
+  return state.expenses.filter(e => expenseMonth(e).slice(0,4) === prefix);
+}
+function monthTotal(ym){
+  return state.expenses.filter(e=>expenseMonth(e)===ym).reduce((s,e)=>s+Number(e.amount||0),0);
 }
 
 let dirty = false;
@@ -544,6 +591,45 @@ function render(){
   }
 
   renderReport(monthExp, expTotal);
+  renderYearReport();
+}
+function renderYearReport(){
+  document.getElementById('yearLabel').textContent = String(reportYear);
+  const yExp = yearExpenses(reportYear);
+  const yTotal = yExp.reduce((s,e)=>s+Number(e.amount||0),0);
+  document.getElementById('yearTotal').textContent = fmt(yTotal);
+
+  const byCat = {};
+  yExp.forEach(e=>{
+    const k = e.category && CATS.some(c=>c.key===e.category) ? e.category : 'other';
+    byCat[k] = (byCat[k]||0) + Number(e.amount||0);
+  });
+  const topKey = Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a])[0];
+  const topEl = document.getElementById('yearTopCat');
+  if(topKey){
+    const c = catInfo(topKey);
+    topEl.textContent = `${c.icon} ${c.label} — ${fmt(byCat[topKey])}`;
+  } else {
+    topEl.textContent = '—';
+  }
+
+  const listEl = document.getElementById('yearMonthsList');
+  const months = Array.from({length:12}, (_,i)=>`${reportYear}-${String(i+1).padStart(2,'0')}`);
+  const totals = months.map(m=>monthTotal(m));
+  const maxTotal = Math.max(1, ...totals);
+  const rowsHtml = months.map((m,i)=>{
+    const amt = totals[i];
+    const pct = Math.round((amt/maxTotal)*100);
+    return `
+    <div class="repRow">
+      <div class="repHead">
+        <span class="rname">${AR_MONTHS[i]}</span>
+        <span class="ramt">${fmt(amt)}</span>
+      </div>
+      <div class="repTrack"><div class="repFill" style="width:${pct}%; background:var(--accent)"></div></div>
+    </div>`;
+  }).join('');
+  listEl.innerHTML = yExp.length ? rowsHtml : '<div class="empty">لا توجد مصاريف مسجّلة في هذه السنة</div>';
 }
 function renderReport(monthExp, expTotal){
   const el = document.getElementById('reportList');
@@ -607,11 +693,19 @@ function addItem(key){
 function addExpense(){
   const nameEl = document.getElementById('expName'); const valEl = document.getElementById('expVal');
   const catEl = document.getElementById('expCategory');
-  const name = nameEl.value.trim(); const amount = Number(valEl.value);
-  if(!name || !amount) return;
+  const category = catEl.value || 'other';
+  const amount = Number(valEl.value);
+  let name = nameEl.value.trim();
+  if(!amount) return;
+  if(category === 'other' && !name){
+    alert('اكتب تفاصيل المصروف — مطلوبة لتصنيف "أخرى"');
+    nameEl.focus();
+    return;
+  }
+  if(!name) name = catInfo(category).label;
   state.expenses.push({
     id:uid(), name, amount,
-    category: catEl.value || 'other',
+    category,
     user: window.currentUser||'أنا',
     date:new Date().toISOString().slice(0,10),
     month: viewMonth
@@ -670,6 +764,8 @@ function setBudget(){
   saveState(); render();
 }
 
+populateCategorySelect();
+onCategoryChange();
 if(syncKey && syncBin){ syncPull(); setInterval(()=>syncPull(), 20000);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) syncPull(); });
 }
