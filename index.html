@@ -180,19 +180,19 @@ button.add:active{opacity:.8}
   </div>
 
   <h2 style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px">الذهب (بالقطعة) <span class="tot" id="goldTotal"></span></h2>
+  <div class="subtot" id="goldWeightTot" style="margin-bottom:4px"></div>
+  <div class="subtot" id="goldPriceInfo" style="margin-bottom:10px; opacity:.75; font-size:12px"></div>
   <div id="goldList"></div>
   <div class="formrow">
     <input id="goldName" placeholder="وصف القطعة (خاتم، سوار...)">
     <input id="goldWeight" placeholder="الوزن (جم)" type="number">
   </div>
   <div class="formrow">
-    <input id="goldValue" placeholder="القيمة التقديرية (اختياري)" type="number">
-    <label class="filepick" id="goldFileLabel">📷 صورة القطعة<input id="goldFile" type="file" accept="image/*"></label>
+    <label class="filepick" id="goldFileLabel" style="flex:1">📷 صورة القطعة<input id="goldFile" type="file" accept="image/*"></label>
   </div>
   <div class="formrow">
     <button class="add" style="flex:1" onclick="addGold()">إضافة القطعة</button>
   </div>
-  <div class="subtot" id="goldWeightTot"></div>
 </div>
 
 <div class="section">
@@ -365,6 +365,39 @@ function saveState(){
 const fmt = n => (Number(n)||0).toLocaleString('ar-SA') + ' ر.س';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
 
+// ---- Live gold price (XAU, 21K, SAR/gram) ----
+const GOLD_PRICE_CACHE_KEY = 'goldPriceCache_v1';
+const SAR_PER_USD = 3.75; // fixed peg
+const GRAMS_PER_OUNCE = 31.1034768;
+let goldPricePerGram21k = null;
+let goldPriceUpdatedAt = null;
+(function loadCachedGoldPrice(){
+  try{
+    const c = JSON.parse(localStorage.getItem(GOLD_PRICE_CACHE_KEY));
+    if(c && c.pricePerGram21k){
+      goldPricePerGram21k = c.pricePerGram21k;
+      goldPriceUpdatedAt = c.updatedAt;
+    }
+  }catch(e){}
+})();
+async function fetchGoldPrice(){
+  try{
+    const res = await fetch('https://api.gold-api.com/price/XAU');
+    if(!res.ok) throw new Error('bad response');
+    const data = await res.json();
+    const usdPerOunce = Number(data.price);
+    if(!usdPerOunce) throw new Error('no price');
+    const sarPerOunce24k = usdPerOunce * SAR_PER_USD;
+    const sarPerGram24k = sarPerOunce24k / GRAMS_PER_OUNCE;
+    goldPricePerGram21k = sarPerGram24k * (21/24);
+    goldPriceUpdatedAt = Date.now();
+    try{ localStorage.setItem(GOLD_PRICE_CACHE_KEY, JSON.stringify({pricePerGram21k:goldPricePerGram21k, updatedAt:goldPriceUpdatedAt})); }catch(e){}
+    render();
+  }catch(e){
+    console.warn('تعذّر تحديث سعر الذهب', e);
+  }
+}
+
 // ---- Login / password gate (local device lock only) ----
 let pendingUser = null;
 function selectUser(name){
@@ -534,7 +567,7 @@ function saveLocalOnly(){
 
 function render(){
   const assetsTotal = state.assets.reduce((s,a)=>s+Number(a.value||0),0);
-  const goldValueTotal = state.gold.reduce((s,g)=>s+Number(g.value||0),0);
+  const goldValueTotal = state.gold.reduce((s,g)=>s+goldItemValue(g),0);
   const goldWeightTotal = state.gold.reduce((s,g)=>s+Number(g.weight||0),0);
   const liabTotal = state.liabilities.reduce((s,a)=>s+Number(a.value||0),0);
   const net = assetsTotal + goldValueTotal - liabTotal;
@@ -547,6 +580,9 @@ function render(){
   document.getElementById('goldTotal').textContent = goldValueTotal ? fmt(goldValueTotal) : '';
   document.getElementById('goldWeightTot').textContent = state.gold.length
     ? `إجمالي الوزن: ${goldWeightTotal.toLocaleString('ar-SA')} جم` : '';
+  document.getElementById('goldPriceInfo').textContent = goldPricePerGram21k
+    ? `سعر جرام الذهب عيار ٢١ اليوم: ${fmt(goldPricePerGram21k)} / جم${goldPriceUpdatedAt ? ' (محدث ' + new Date(goldPriceUpdatedAt).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) + ')' : ''}`
+    : 'جارِ تحديث سعر الذهب...';
 
   renderList('assetsList','assets');
   renderList('liabList','liabilities');
@@ -666,18 +702,24 @@ function renderList(elId, key){
       <button class="del" onclick="removeItem('${key}','${a.id}')">✕</button>
     </div>`).join('');
 }
+function goldItemValue(g){
+  return goldPricePerGram21k ? (Number(g.weight||0) * goldPricePerGram21k) : Number(g.value||0);
+}
 function renderGold(){
   const el = document.getElementById('goldList');
   if(!state.gold.length){ el.innerHTML = '<div class="empty">لا توجد قطع ذهب بعد</div>'; return; }
-  el.innerHTML = state.gold.slice().reverse().map(g=>`
+  el.innerHTML = state.gold.slice().reverse().map(g=>{
+    const val = goldItemValue(g);
+    return `
     <div class="goldrow">
       ${g.imageData ? `<img src="${g.imageData}">` : `<div class="ph">💍</div>`}
       <div class="info">
         <div class="name">${escapeHtml(g.name)}</div>
-        <div class="note">${g.weight} جم${g.value?' · '+fmt(g.value):''}</div>
+        <div class="note">${g.weight} جم${val?' · '+fmt(val):''}</div>
       </div>
       <button class="del" onclick="removeItem('gold','${g.id}')">✕</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
@@ -737,14 +779,13 @@ function compressImage(file, maxDim, quality){
 async function addGold(){
   const nameEl = document.getElementById('goldName');
   const weightEl = document.getElementById('goldWeight');
-  const valueEl = document.getElementById('goldValue');
   const fileEl = document.getElementById('goldFile');
   const name = nameEl.value.trim(); const weight = Number(weightEl.value);
   if(!name || !weight) return;
-  const item = {id:uid(), name, weight, value:Number(valueEl.value)||0, imageData:null};
+  const item = {id:uid(), name, weight, value:0, imageData:null};
   const finish = ()=>{
     state.gold.push(item);
-    nameEl.value=''; weightEl.value=''; valueEl.value=''; fileEl.value='';
+    nameEl.value=''; weightEl.value=''; fileEl.value='';
     saveState(); render();
   };
   if(fileEl.files && fileEl.files[0]){
@@ -770,6 +811,9 @@ if(syncKey && syncBin){ syncPull(); setInterval(()=>syncPull(), 20000);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) syncPull(); });
 }
 render();
+fetchGoldPrice();
+setInterval(fetchGoldPrice, 5*60*1000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) fetchGoldPrice(); });
 </script>
 </body>
 </html>
