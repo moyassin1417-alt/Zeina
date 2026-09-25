@@ -231,6 +231,17 @@ details.expander[open] summary{margin-bottom:4px}
     <button class="add" style="flex:1" onclick="createSyncBin()">إنشاء ملف جديد</button>
     <button class="add" style="flex:1; background:var(--accent2)" onclick="joinSyncBin()">اتصال بملف موجود</button>
   </div>
+
+  <div style="margin-top:14px; border-top:1px solid var(--line); padding-top:12px">
+    <div class="sub" style="margin-bottom:6px">نسخة احتياطية من بياناتك — مهمة حتى لو المزامنة شغالة، لأنها بتحفظ نسخة على جهازك مش عند طرف تالت</div>
+    <div class="btnrow">
+      <button class="add" style="flex:1" onclick="exportBackup()">⬇️ تنزيل نسخة احتياطية</button>
+      <label class="add" style="flex:1; text-align:center; background:var(--accent2); display:flex; align-items:center; justify-content:center">⬆️ استيراد نسخة
+        <input type="file" accept="application/json" id="importFileInput" style="display:none" onchange="importBackupFile(event)">
+      </label>
+    </div>
+    <button class="add" style="width:100%; margin-top:8px; background:var(--sub)" onclick="exportExpensesCSV()">📑 تصدير المصاريف كملف Excel/CSV</button>
+  </div>
 </div>
 
 <div class="notice" id="noticeBar">هذه نسخة محلية: كل التعديلات تُحفظ تلقائيًا في هذا الجهاز، وتتزامن مع باقي الأسرة فقط بعد تفعيل المزامنة أعلاه.</div>
@@ -716,6 +727,56 @@ function setSyncStatus(on, text){
   document.getElementById('syncTextPanel').textContent = text;
   const notice = document.getElementById('noticeBar');
   if(notice) notice.style.display = on ? 'none' : 'block';
+}
+function triggerDownload(content, filename, mime){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+function exportBackup(){
+  const dateStr = new Date().toISOString().slice(0,10);
+  const json = JSON.stringify(state, null, 2);
+  triggerDownload(json, `zeina-backup-${dateStr}.json`, 'application/json');
+  showToast('تم تنزيل النسخة الاحتياطية');
+}
+function importBackupFile(event){
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try{ parsed = JSON.parse(reader.result); }
+    catch(e){ alert('تعذّر قراءة الملف: تأكد أنه ملف نسخة احتياطية صحيح (JSON)'); event.target.value=''; return; }
+    const ok = confirm('استيراد هذه النسخة سيستبدل كل البيانات الحالية في هذا الجهاز بالكامل. متأكد؟');
+    if(!ok){ event.target.value=''; return; }
+    state = normalizeState(parsed);
+    saveState();
+    render();
+    showToast('تم استيراد النسخة الاحتياطية بنجاح');
+    event.target.value = '';
+  };
+  reader.onerror = () => { alert('حدث خطأ أثناء قراءة الملف'); event.target.value=''; };
+  reader.readAsText(file, 'utf-8');
+}
+function exportExpensesCSV(){
+  const rows = [['التاريخ','الشهر','التصنيف','الوصف','بواسطة','المبلغ (ر.س)']];
+  const sorted = [...state.expenses].sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+  sorted.forEach(e=>{
+    const cat = catInfo(e.category);
+    rows.push([e.date||'', expenseMonth(e), cat.label, e.name||'', e.user||'', Number(e.amount||0)]);
+  });
+  const csv = rows.map(r => r.map(v => {
+    const s = String(v).replace(/"/g,'""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  }).join(',')).join('\r\n');
+  const dateStr = new Date().toISOString().slice(0,10);
+  triggerDownload('﻿' + csv, `zeina-expenses-${dateStr}.csv`, 'text/csv;charset=utf-8');
+  showToast('تم تصدير المصاريف');
 }
 async function createSyncBin(){
   const key = document.getElementById('syncKey').value.trim();
