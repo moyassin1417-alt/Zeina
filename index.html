@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>زينة | الماليات الشخصية</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#8a6d3b">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="بيت زينة">
 <style>
 :root{
   --bg:#f6f3ee; --card:#ffffff; --ink:#20201d; --sub:#6b6558;
@@ -293,6 +301,14 @@ details.expander[open] summary{margin-bottom:4px}
   <div class="btns">
     <button class="add" onclick="exportBackup()">نزّل الآن</button>
     <button class="add" style="background:var(--sub)" onclick="snoozeBackupReminder()">لاحقًا</button>
+  </div>
+</div>
+
+<div class="notice noticeRow" id="installBanner" style="display:none">
+  <span>📲 ثبّت "بيت زينة" على شاشتك الرئيسية زي أي تطبيق — بيفتح أسرع وبيشتغل حتى من غير نت</span>
+  <div class="btns">
+    <button class="add" onclick="installApp()">تثبيت</button>
+    <button class="add" style="background:var(--sub)" onclick="dismissInstallBanner()">مش دلوقتي</button>
   </div>
 </div>
 
@@ -1791,6 +1807,39 @@ render();
 fetchGoldPrice();
 setInterval(fetchGoldPrice, 5*60*1000);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) fetchGoldPrice(); });
+
+// --- PWA: installable app + offline shell ---
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if(localStorage.getItem('zainah_install_dismissed')) return;
+  if(window.matchMedia('(display-mode: standalone)').matches) return;
+  const banner = document.getElementById('installBanner');
+  if(banner) banner.style.display = 'flex';
+});
+function installApp(){
+  const banner = document.getElementById('installBanner');
+  if(banner) banner.style.display = 'none';
+  if(!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.finally(() => { deferredInstallPrompt = null; });
+}
+function dismissInstallBanner(){
+  localStorage.setItem('zainah_install_dismissed', '1');
+  const banner = document.getElementById('installBanner');
+  if(banner) banner.style.display = 'none';
+}
+window.addEventListener('appinstalled', () => {
+  const banner = document.getElementById('installBanner');
+  if(banner) banner.style.display = 'none';
+  deferredInstallPrompt = null;
+});
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
