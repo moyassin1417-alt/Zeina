@@ -271,8 +271,9 @@ details.expander[open] summary{margin-bottom:4px}
   </div>
   <div class="formrow">
     <input id="expName" placeholder="تفاصيل المصروف (اختياري)">
-    <button class="add" style="flex:1" onclick="addExpense()">إضافة</button>
+    <button class="add" id="expSubmitBtn" style="flex:1" onclick="addExpense()">إضافة</button>
   </div>
+  <button class="add" id="expCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditExpense()">إلغاء التعديل</button>
 
   <details class="expander" style="margin-top:10px">
     <summary>➕ إضافة عدة مصاريف دفعة واحدة (لصق سريع)</summary>
@@ -943,6 +944,7 @@ function expenseRowHtml(e){
   <div class="row">
     <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(e.name)}</div><div class="note"><span class="userdot" style="background:${userColor(e.user)}"></span>${c.label} · ${escapeHtml(e.user||'')} · ${e.date}</div></div>
     <div class="amt">${fmt(e.amount)}</div>
+    <button class="edit" onclick="startEditExpense('${e.id}')">✎</button>
     <button class="del" onclick="removeItem('expenses','${e.id}')">✕</button>
   </div>`;
 }
@@ -1118,6 +1120,33 @@ function addItem(key){
   nameEl.value=''; valEl.value='';
   saveState(); render();
 }
+let editingExpenseId = null;
+function startEditExpense(id){
+  const exp = state.expenses.find(e=>e.id===id);
+  if(!exp) return;
+  editingExpenseId = id;
+  document.getElementById('expCategory').value = exp.category;
+  onCategoryChange();
+  if(exp.category === 'liability_payment'){
+    const sel = document.getElementById('expLiabilitySelect');
+    if(sel) sel.value = exp.liabilityId || '';
+  }
+  document.getElementById('expName').value = exp.name || '';
+  document.getElementById('expVal').value = exp.amount;
+  document.getElementById('expSubmitBtn').textContent = 'تحديث';
+  document.getElementById('expCancelBtn').style.display = 'block';
+  showTab('home');
+  const valEl = document.getElementById('expVal');
+  valEl.scrollIntoView({behavior:'smooth', block:'center'});
+  valEl.focus();
+}
+function cancelEditExpense(){
+  editingExpenseId = null;
+  document.getElementById('expName').value = '';
+  document.getElementById('expVal').value = '';
+  document.getElementById('expSubmitBtn').textContent = 'إضافة';
+  document.getElementById('expCancelBtn').style.display = 'none';
+}
 function addExpense(){
   const nameEl = document.getElementById('expName'); const valEl = document.getElementById('expVal');
   const catEl = document.getElementById('expCategory');
@@ -1130,6 +1159,7 @@ function addExpense(){
     nameEl.focus();
     return;
   }
+  const existing = editingExpenseId ? state.expenses.find(e=>e.id===editingExpenseId) : null;
   let liabilityId;
   if(category === 'liability_payment'){
     const liabSel = document.getElementById('expLiabilitySelect');
@@ -1138,25 +1168,48 @@ function addExpense(){
       alert('اختر الالتزام المطلوب سداده');
       return;
     }
-    if(amount > liab.value + 0.001){
-      if(!confirm(`المبلغ (${fmt(amount)}) أكبر من المتبقي على "${liab.name}" (${fmt(liab.value)}). هل تريد المتابعة وتصفير الالتزام؟`)) return;
+    const alreadyPaidHere = (existing && existing.category==='liability_payment' && existing.liabilityId===liab.id) ? Number(existing.amount||0) : 0;
+    const available = Number(liab.value||0) + alreadyPaidHere;
+    if(amount > available + 0.001){
+      if(!confirm(`المبلغ (${fmt(amount)}) أكبر من المتبقي على "${liab.name}" (${fmt(available)}). هل تريد المتابعة وتصفير الالتزام؟`)) return;
+    }
+    if(existing && existing.category === 'liability_payment' && existing.liabilityId){
+      const oldLiab = state.liabilities.find(l=>l.id===existing.liabilityId);
+      if(oldLiab) oldLiab.value = Number(oldLiab.value||0) + Number(existing.amount||0);
     }
     liab.value = Math.max(0, liab.value - amount);
     liabilityId = liab.id;
     if(!name) name = 'سداد: ' + liab.name;
+  } else if(existing && existing.category === 'liability_payment' && existing.liabilityId){
+    const oldLiab = state.liabilities.find(l=>l.id===existing.liabilityId);
+    if(oldLiab) oldLiab.value = Number(oldLiab.value||0) + Number(existing.amount||0);
   }
   if(!name) name = catInfo(category).label;
-  state.expenses.push({
-    id:uid(), name, amount,
-    category,
-    liabilityId,
-    user: window.currentUser||'أنا',
-    date:new Date().toISOString().slice(0,10),
-    month: viewMonth
-  });
+  if(existing){
+    existing.name = name;
+    existing.amount = amount;
+    existing.category = category;
+    existing.liabilityId = liabilityId;
+  } else {
+    state.expenses.push({
+      id:uid(), name, amount,
+      category,
+      liabilityId,
+      user: window.currentUser||'أنا',
+      date:new Date().toISOString().slice(0,10),
+      month: viewMonth
+    });
+  }
   nameEl.value=''; valEl.value='';
   if(category === 'liability_payment') populateLiabilitySelect();
+  const wasEditing = !!existing;
+  if(wasEditing){
+    editingExpenseId = null;
+    document.getElementById('expSubmitBtn').textContent = 'إضافة';
+    document.getElementById('expCancelBtn').style.display = 'none';
+  }
   saveState(); render();
+  if(wasEditing) showToast('تم تحديث المصروف');
 }
 function bulkAddExpenses(){
   const ta = document.getElementById('bulkImportText');
@@ -1277,6 +1330,7 @@ function removeItem(key,id){
       }
     }
   }
+  if(key === 'expenses' && editingExpenseId === id) cancelEditExpense();
   state[key] = state[key].filter(i=>i.id!==id);
   saveState(); render();
 }
