@@ -428,6 +428,15 @@ details.expander[open] summary{margin-bottom:4px}
     <input id="liabVal" placeholder="القيمة" type="number">
     <button class="add" onclick="addItem('liabilities')">إضافة</button>
   </div>
+
+  <h2 style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px">🎯 أهداف الادخار <span class="tot" id="goalsTotal"></span></h2>
+  <div class="sub" style="margin-bottom:8px">أي مبلغ تضيفه لهدف الادخار يتسجل تلقائيًا كمصروف "ادخار" وينزل من ميزانية الشهر</div>
+  <div id="goalsList"></div>
+  <div class="formrow">
+    <input id="goalName" placeholder="اسم الهدف (عمرة، صندوق زينة...)">
+    <input id="goalTarget" placeholder="المبلغ المستهدف" type="number">
+    <button class="add" onclick="addGoal()">إضافة</button>
+  </div>
 </div>
 
 <div class="section tabview" data-tab="assets">
@@ -452,14 +461,6 @@ details.expander[open] summary{margin-bottom:4px}
   </div>
   <div class="formrow">
     <button class="add" style="flex:1" onclick="addGold()">إضافة القطعة</button>
-  </div>
-
-  <h2 style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px">🎯 أهداف الادخار <span class="tot" id="goalsTotal"></span></h2>
-  <div id="goalsList"></div>
-  <div class="formrow">
-    <input id="goalName" placeholder="اسم الهدف (عمرة، صندوق زينة...)">
-    <input id="goalTarget" placeholder="المبلغ المستهدف" type="number">
-    <button class="add" onclick="addGoal()">إضافة</button>
   </div>
 </div>
 
@@ -569,6 +570,7 @@ const CATS = [
   {key:'groceries',     label:'بقالة',          icon:'🛒', color:'#6334b5'},
   {key:'debts',         label:'ديون',           icon:'🤷', color:'#8c34b5'},
   {key:'liability_payment', label:'سداد التزام', icon:'🏦', color:'#6b4e2e'},
+  {key:'savings',        label:'ادخار',          icon:'🎯', color:'#2e6b5f'},
   {key:'dining',        label:'أكل بره',        icon:'🍽️', color:'#b534b5'},
   {key:'installments',  label:'أقساط',          icon:'💳', color:'#b5348d'},
   {key:'subscriptions', label:'اشتراكات',       icon:'🔄', color:'#b53464'},
@@ -594,7 +596,7 @@ function populateCategorySelect(){
 function populateRecurringCategorySelect(){
   const sel = document.getElementById('recCategory');
   if(!sel || sel.options.length) return;
-  sel.innerHTML = CATS.filter(c=>c.key!=='liability_payment').map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
+  sel.innerHTML = CATS.filter(c=>c.key!=='liability_payment' && c.key!=='savings').map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
 }
 async function addRecurring(){
   const catEl = document.getElementById('recCategory');
@@ -1677,8 +1679,22 @@ async function contributeToGoal(id){
   const num = Number(v);
   if(isNaN(num) || num===0){ await showAlert('قيمة غير صحيحة'); return; }
   g.saved = Math.max(0, Number(g.saved||0) + num);
+  // money going INTO a goal counts as a real expense against this month's budget/income;
+  // withdrawing back out doesn't touch expenses (it's using money already accounted for earlier)
+  if(num > 0){
+    state.expenses.push({
+      id:uid(),
+      name:'ادخار: ' + g.name,
+      amount:num,
+      category:'savings',
+      goalId:g.id,
+      user: window.currentUser||'أنا',
+      date:new Date().toISOString().slice(0,10),
+      month:new Date().toISOString().slice(0,7)
+    });
+  }
   saveState(); render();
-  showToast(num>0 ? `تمت إضافة ${fmt(num)} لهدف "${g.name}"` : `تم سحب ${fmt(Math.abs(num))} من هدف "${g.name}"`);
+  showToast(num>0 ? `تمت إضافة ${fmt(num)} لهدف "${g.name}" (اتسجلت كمصروف)` : `تم سحب ${fmt(Math.abs(num))} من هدف "${g.name}"`);
 }
 async function editGoal(id){
   const g = state.goals.find(x=>x.id===id);
@@ -1878,6 +1894,17 @@ async function addExpense(){
     const oldLiab = state.liabilities.find(l=>l.id===existing.liabilityId);
     if(oldLiab) oldLiab.value = Number(oldLiab.value||0) + Number(existing.amount||0);
   }
+  // keep a linked savings goal in sync if its auto-logged expense gets edited (amount changed, or moved to another category)
+  if(existing && existing.category === 'savings' && existing.goalId){
+    const goal = state.goals.find(g=>g.id===existing.goalId);
+    if(goal){
+      if(category === 'savings'){
+        goal.saved = Math.max(0, Number(goal.saved||0) + (amount - Number(existing.amount||0)));
+      } else {
+        goal.saved = Math.max(0, Number(goal.saved||0) - Number(existing.amount||0));
+      }
+    }
+  }
   if(!name) name = catInfo(category).label;
 
   const fileEl = document.getElementById('expFile');
@@ -2028,11 +2055,21 @@ function removeItem(key,id){
   if(idx === -1) return;
   const item = state[key][idx];
   let liabUndo = null;
+  let goalUndo = null;
   if(key === 'expenses' && item.category === 'liability_payment' && item.liabilityId){
     const liab = state.liabilities.find(l=>l.id===item.liabilityId);
     if(liab){
       liab.value = Number(liab.value||0) + Number(item.amount||0);
       liabUndo = { liabilityId: item.liabilityId, amount: Number(item.amount||0) };
+    }
+  }
+  if(key === 'expenses' && item.category === 'savings' && item.goalId){
+    const goal = state.goals.find(g=>g.id===item.goalId);
+    if(goal){
+      // snapshot the exact pre-delete value rather than reversing additively, so undo is exact even if
+      // goal.saved was clamped at 0 by a withdrawal that happened after this particular contribution
+      goalUndo = { goalId: item.goalId, previousSaved: Number(goal.saved||0) };
+      goal.saved = Math.max(0, Number(goal.saved||0) - Number(item.amount||0));
     }
   }
   if(key === 'expenses' && editingExpenseId === id) cancelEditExpense();
@@ -2043,6 +2080,10 @@ function removeItem(key,id){
     if(liabUndo){
       const liab = state.liabilities.find(l=>l.id===liabUndo.liabilityId);
       if(liab) liab.value = Math.max(0, Number(liab.value||0) - liabUndo.amount);
+    }
+    if(goalUndo){
+      const goal = state.goals.find(g=>g.id===goalUndo.goalId);
+      if(goal) goal.saved = goalUndo.previousSaved;
     }
     saveState(); render();
   });
