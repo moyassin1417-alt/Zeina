@@ -983,8 +983,7 @@ const DAILY_MESSAGES = {
 };
 const CATEGORY_ICON = {advice:'💡', parenting:'👶', romantic:'❤️', religious:'🤲', joke:'😄'};
 function maybeShowDailySplash(){
-  const today = new Date().toISOString().slice(0,10);
-  if(localStorage.getItem('zainah_splash_date') === today) return;
+  // Shows on every app open (login/relaunch) rather than once per day.
   const cats = Object.keys(DAILY_MESSAGES);
   const cat = cats[Math.floor(Math.random()*cats.length)];
   const list = DAILY_MESSAGES[cat];
@@ -993,7 +992,6 @@ function maybeShowDailySplash(){
   document.getElementById('splashMsg').textContent = msg;
   const el = document.getElementById('splashOverlay');
   el.style.display = 'flex';
-  localStorage.setItem('zainah_splash_date', today);
   clearTimeout(window._splashTimer);
   window._splashTimer = setTimeout(dismissSplash, 4500);
 }
@@ -1081,6 +1079,7 @@ function submitPassword(){
 }
 function doLogin(name){
   window.currentUser = name;
+  localStorage.setItem('zainah_current_user', name);
   const avatarSrc = name==='بابا'
     ? document.getElementById('dadAvatarImg').src
     : document.getElementById('momAvatarImg').src;
@@ -1095,6 +1094,7 @@ function doLogin(name){
 }
 function logout(){
   window.currentUser = null;
+  localStorage.removeItem('zainah_current_user');
   document.getElementById('appScreen').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
   cancelLogin();
@@ -1807,6 +1807,15 @@ render();
 fetchGoldPrice();
 setInterval(fetchGoldPrice, 5*60*1000);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) fetchGoldPrice(); });
+
+// Stay logged in across refreshes/relaunches on this device — no need to
+// re-enter the password every time (it's already a local-device lock only).
+(function autoLoginFromSavedSession(){
+  const savedUser = localStorage.getItem('zainah_current_user');
+  if((savedUser === 'بابا' || savedUser === 'ماما') && localStorage.getItem('zainah_pw_'+savedUser)){
+    doLogin(savedUser);
+  }
+})();
 
 // --- PWA: installable app + offline shell ---
 let deferredInstallPrompt = null;
