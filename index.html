@@ -195,6 +195,15 @@ details.expander[open] summary{margin-bottom:4px}
     <button class="add" style="flex:1" onclick="addExpense()">إضافة</button>
   </div>
 
+  <details class="expander" style="margin-top:10px">
+    <summary>➕ إضافة عدة مصاريف دفعة واحدة (لصق سريع)</summary>
+    <div style="margin-top:8px">
+      <div class="sub" style="margin-bottom:6px">سطر لكل بند: اسم التصنيف ثم المبلغ، مثال:<br>أقساط 4337.68<br>بقالة 1060.15</div>
+      <textarea id="bulkImportText" rows="5" style="width:100%; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px; font-size:.85rem; color:var(--ink); font-family:inherit; resize:vertical"></textarea>
+      <button class="add" style="width:100%; margin-top:8px" onclick="bulkAddExpenses()">استيراد إلى شهر <span id="bulkMonthLabel"></span></button>
+    </div>
+  </details>
+
   <h2 style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px">مصاريف الشهر <span class="tot" id="expTotal"></span></h2>
   <div id="expPreview"></div>
   <details id="expDetails" class="expander">
@@ -636,6 +645,7 @@ function render(){
   if(document.getElementById('expCategory').value === 'liability_payment') populateLiabilitySelect();
 
   document.getElementById('monthLabel').textContent = monthLabel(viewMonth);
+  document.getElementById('bulkMonthLabel').textContent = monthLabel(viewMonth);
   document.getElementById('reportMonthLabel').textContent = monthLabel(viewMonth);
 
   const monthExp = state.expenses.filter(e=>expenseMonth(e)===viewMonth);
@@ -849,6 +859,35 @@ function addExpense(){
   nameEl.value=''; valEl.value='';
   if(category === 'liability_payment') populateLiabilitySelect();
   saveState(); render();
+}
+function bulkAddExpenses(){
+  const ta = document.getElementById('bulkImportText');
+  const lines = ta.value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!lines.length) return;
+  let added = 0; const skipped = [];
+  lines.forEach(line=>{
+    const m = line.match(/^(.*?)[\s:،\-]+([\d,]+(?:\.\d+)?)\s*(?:ر\.?\s?س\.?)?$/);
+    if(!m){ skipped.push(line); return; }
+    const label = m[1].trim();
+    const amount = Number(m[2].replace(/,/g,''));
+    if(!label || !amount){ skipped.push(line); return; }
+    const cat = CATS.find(c=>c.label === label)
+      || CATS.find(c=>label.includes(c.label))
+      || CATS.find(c=>c.label.includes(label));
+    const category = cat ? cat.key : 'other';
+    const name = cat ? cat.label : label;
+    state.expenses.push({
+      id:uid(), name, amount,
+      category,
+      user: window.currentUser||'أنا',
+      date:new Date().toISOString().slice(0,10),
+      month: viewMonth
+    });
+    added++;
+  });
+  ta.value = '';
+  saveState(); render();
+  alert(`تم إضافة ${added} بند إلى ${monthLabel(viewMonth)}` + (skipped.length ? `\nتعذّر التعرف على: ${skipped.join('، ')}` : ''));
 }
 function compressImage(file, maxDim, quality){
   return new Promise((resolve)=>{
