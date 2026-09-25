@@ -7,14 +7,54 @@
 <style>
 :root{
   --bg:#f6f3ee; --card:#ffffff; --ink:#20201d; --sub:#6b6558;
-  --line:#e6e0d4; --accent:#8a6d3b; --accent2:#3c6e5a; --danger:#a8452f;
+  --line:#e6e0d4; --accent:#8a6d3b; --accent2:#3c6e5a; --danger:#a8452f; --warn:#c98a1f;
   --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16150f; --card:#211f19; --ink:#f0ebe0; --sub:#a89f8c;
+    --line:#38352b; --accent:#d4ad70; --accent2:#6fc0a3; --danger:#e88068; --warn:#e0a83f;
+  }
 }
 *{box-sizing:border-box}
 body{
   margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
-  font-family:'Segoe UI',Tahoma,Arial,sans-serif; padding:16px; padding-bottom:40px;
+  font-family:'Segoe UI',Tahoma,Arial,sans-serif; padding:16px; padding-bottom:96px;
 }
+.tabview{display:none}
+.tabview.active{display:block}
+.bottomnav{
+  position:fixed; bottom:0; inset-inline:0; z-index:50; display:flex;
+  background:var(--card); border-top:1px solid var(--line);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+.bottomnav button{
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+  background:none; border:none; color:var(--sub); font-size:.65rem; padding:6px 2px; cursor:pointer;
+}
+.bottomnav button .ic{font-size:1.3rem}
+.bottomnav button.active{color:var(--accent); font-weight:700}
+.fab{
+  position:fixed; bottom:78px; inset-inline-end:16px; z-index:60;
+  width:54px; height:54px; border-radius:50%; border:none;
+  background:var(--accent); color:#fff; font-size:1.7rem; line-height:1;
+  box-shadow:0 4px 14px rgba(0,0,0,.28); cursor:pointer;
+}
+.fab:active{opacity:.85}
+.userdot{display:inline-block; width:7px; height:7px; border-radius:50%; margin-inline-end:4px; vertical-align:middle}
+.donut{width:88px; height:88px; min-width:88px; border-radius:50%; position:relative}
+.donutCenter{
+  position:absolute; inset:14px; background:var(--card); border-radius:50%;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  font-size:.62rem; font-weight:700; color:var(--ink); padding:4px; line-height:1.15;
+}
+.toast{
+  position:fixed; bottom:84px; left:50%; transform:translateX(-50%) translateY(10px);
+  background:var(--ink); color:var(--bg); padding:10px 18px; border-radius:10px;
+  font-size:.85rem; max-width:90vw; text-align:center; z-index:80; opacity:0;
+  transition:opacity .25s, transform .25s; pointer-events:none;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
 h1{font-size:1.3rem; margin:0 0 2px}
 .sub{color:var(--sub); font-size:.85rem; margin-bottom:18px}
 .cards{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px}
@@ -45,6 +85,7 @@ button.add{
 button.add:active{opacity:.8}
 .budgetbar{height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:8px}
 .budgetbar>div{height:100%; background:var(--accent2)}
+.budgetbar.warn>div{background:var(--warn)}
 .budgetbar.over>div{background:var(--danger)}
 .userpick{display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:.85rem; color:var(--sub)}
 .userpick .me{font-weight:700; color:var(--ink); cursor:pointer; text-decoration:underline dotted}
@@ -167,7 +208,7 @@ details.expander[open] summary{margin-bottom:4px}
 
 <div class="notice">هذه نسخة محلية: كل التعديلات تُحفظ تلقائيًا في هذا الجهاز، وتتزامن مع باقي الأسرة فقط بعد تفعيل المزامنة أعلاه.</div>
 
-<div class="section">
+<div class="section tabview" data-tab="expenses">
   <div class="monthnav">
     <button class="navbtn" onclick="changeMonth(-1)" title="الشهر السابق" style="width:auto; padding:0 10px; font-size:.8rem">السابق</button>
     <span class="monthlabel" id="monthLabel"></span>
@@ -213,7 +254,7 @@ details.expander[open] summary{margin-bottom:4px}
   </details>
 </div>
 
-<div class="section">
+<div class="section tabview" data-tab="assets">
   <h2>الالتزامات <span class="tot" id="liabTotal"></span></h2>
   <div id="liabList"></div>
   <div class="formrow">
@@ -223,7 +264,7 @@ details.expander[open] summary{margin-bottom:4px}
   </div>
 </div>
 
-<div class="section">
+<div class="section tabview" data-tab="assets">
   <h2>الأصول الشخصية <span class="tot" id="assetsTotal"></span></h2>
   <div id="assetsList"></div>
   <div class="formrow">
@@ -248,6 +289,7 @@ details.expander[open] summary{margin-bottom:4px}
   </div>
 </div>
 
+<div class="tabview" data-tab="home">
 <div class="cards">
   <div class="card"><div class="label">إجمالي الأصول</div><div class="val" id="topAssets">—</div><div class="note" id="topAssetsGoldNote" style="font-size:11px; opacity:.7; margin-top:2px"></div></div>
   <div class="card"><div class="label">إجمالي الالتزامات</div><div class="val" id="topLiab">—</div></div>
@@ -255,8 +297,9 @@ details.expander[open] summary{margin-bottom:4px}
   <div class="card"><div class="label">الميزانية المتبقية هذا الشهر</div><div class="val" id="remaining">—</div></div>
   <div class="card wide"><div class="label">إجمالي المصروف هذا الشهر</div><div class="val" id="topSpent">—</div></div>
 </div>
+</div>
 
-<div class="section">
+<div class="section tabview" data-tab="reports">
   <h2>📊 التقارير والملخص</h2>
 
   <div class="sub" style="margin-bottom:10px">توزيع مصاريف <span id="reportMonthLabel"></span> حسب التصنيف</div>
@@ -282,6 +325,15 @@ details.expander[open] summary{margin-bottom:4px}
     <summary>عرض باقي الأشهر</summary>
     <div id="yearMonthsList" style="margin-top:8px"></div>
   </details>
+</div>
+
+<div class="toast" id="toastEl"></div>
+<button class="fab" id="fabAdd" onclick="fabAddExpense()" title="إضافة مصروف" aria-label="إضافة مصروف">+</button>
+<div class="bottomnav" id="bottomNav">
+  <button data-tab="home" onclick="showTab('home')"><span class="ic">🏠</span>الرئيسية</button>
+  <button data-tab="expenses" onclick="showTab('expenses')"><span class="ic">💰</span>المصاريف</button>
+  <button data-tab="assets" onclick="showTab('assets')"><span class="ic">📦</span>الأصول</button>
+  <button data-tab="reports" onclick="showTab('reports')"><span class="ic">📊</span>التقارير</button>
 </div>
 </div>
 
@@ -419,6 +471,41 @@ function saveState(){
 
 const fmt = n => (Number(n)||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ر.س';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+
+// ---- Tabs ----
+let activeTab = 'home';
+function showTab(tab){
+  activeTab = tab;
+  document.querySelectorAll('.tabview').forEach(el=>{
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  document.querySelectorAll('.bottomnav button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  window.scrollTo({top:0, behavior:'auto'});
+}
+function fabAddExpense(){
+  showTab('expenses');
+  setTimeout(()=>{
+    const el = document.getElementById('expVal');
+    if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
+  }, 50);
+}
+
+// ---- Toast ----
+let toastTimer = null;
+function showToast(msg){
+  const el = document.getElementById('toastEl');
+  if(!el){ return; }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.classList.remove('show'); }, 3200);
+}
+
+// ---- Per-user color ----
+const USER_COLORS = {'بابا':'#3480b5', 'ماما':'#b5348d'};
+function userColor(name){ return USER_COLORS[name] || '#7d7669'; }
 
 // ---- Live gold price (XAU, 21K, SAR/gram) ----
 const GOLD_PRICE_CACHE_KEY = 'goldPriceCache_v1';
@@ -661,14 +748,16 @@ function render(){
   document.getElementById('budgetVal').placeholder = monthBudget ? fmt(monthBudget) : 'ميزانية هذا الشهر بالريال';
   const pct = monthBudget ? Math.min(100, (expTotal/monthBudget)*100) : 0;
   document.getElementById('budgetFill').style.width = pct+'%';
-  document.getElementById('budgetBar').className = 'budgetbar' + (expTotal>monthBudget && monthBudget>0 ? ' over':'');
+  const isOver = expTotal>monthBudget && monthBudget>0;
+  const isWarn = !isOver && monthBudget>0 && (expTotal/monthBudget)>=0.8;
+  document.getElementById('budgetBar').className = 'budgetbar' + (isOver ? ' over' : isWarn ? ' warn' : '');
   document.getElementById('budgetText').textContent = monthBudget
-    ? `صُرف ${fmt(expTotal)} من ${fmt(monthBudget)}`
+    ? `صُرف ${fmt(expTotal)} من ${fmt(monthBudget)}` + (isWarn ? ' — اقتربت من حد الميزانية ⚠️' : '')
     : 'لم تُحدد ميزانية لهذا الشهر بعد';
 
   const up = document.getElementById('userPick');
   const avImg = window.userAvatarSrc ? `<img class="avatar-md" style="display:inline-block" src="${window.userAvatarSrc}">` : '';
-  up.innerHTML = `${avImg} مسجَّل الدخول باسم: <span class="me">${escapeHtml(window.currentUser||'')}</span>`;
+  up.innerHTML = `${avImg} مسجَّل الدخول باسم: <span class="me" style="color:${userColor(window.currentUser)}">${escapeHtml(window.currentUser||'')}</span>`;
 
   const monthExpSorted = monthExp.slice().reverse();
   const previewEl = document.getElementById('expPreview');
@@ -689,7 +778,7 @@ function expenseRowHtml(e){
   const c = catInfo(e.category);
   return `
   <div class="row">
-    <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(e.name)}</div><div class="note">${c.label} · ${escapeHtml(e.user||'')} · ${e.date}</div></div>
+    <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(e.name)}</div><div class="note"><span class="userdot" style="background:${userColor(e.user)}"></span>${c.label} · ${escapeHtml(e.user||'')} · ${e.date}</div></div>
     <div class="amt">${fmt(e.amount)}</div>
     <button class="del" onclick="removeItem('expenses','${e.id}')">✕</button>
   </div>`;
@@ -767,7 +856,24 @@ function renderReport(monthExp, expTotal){
     </div>`;
   };
   el.innerHTML = rows.map(catRowHtml).join('');
-  previewEl.innerHTML = rows.slice(0,3).map(catRowHtml).join('');
+  previewEl.innerHTML = donutHtml(rows, expTotal);
+}
+function donutHtml(rows, total){
+  if(!rows.length || !total) return '';
+  let acc = 0;
+  const stops = rows.map(r=>{
+    const start = (acc/total)*360; acc += r.amount;
+    const end = (acc/total)*360;
+    return `${r.color} ${start}deg ${end}deg`;
+  }).join(', ');
+  const legend = rows.slice(0,6).map(r=>
+    `<span style="font-size:.72rem; color:var(--sub); white-space:nowrap"><span class="catdot" style="background:${r.color}"></span>${r.icon} ${r.label}</span>`
+  ).join('');
+  return `
+  <div style="display:flex; align-items:center; gap:16px; margin-bottom:6px">
+    <div class="donut" style="background:conic-gradient(${stops})"><div class="donutCenter">${fmt(total)}</div></div>
+    <div style="flex:1; display:flex; flex-wrap:wrap; gap:6px 12px">${legend}</div>
+  </div>`;
 }
 function renderList(elId, key){
   const el = document.getElementById(elId);
@@ -899,8 +1005,11 @@ function bulkAddExpenses(){
   saveState(); render();
   let msg = `تم إضافة ${added} بند جديد إلى ${monthLabel(viewMonth)}`;
   if(merged) msg += `، ودمج ${merged} بند مع تصنيف موجود بالفعل`;
-  if(skipped.length) msg += `\nتعذّر التعرف على: ${skipped.join('، ')}`;
-  alert(msg);
+  if(skipped.length){
+    alert(msg + `\nتعذّر التعرف على: ${skipped.join('، ')}`);
+  } else {
+    showToast(msg);
+  }
 }
 function mergeDuplicateExpenses(){
   const monthExp = state.expenses.filter(e=>expenseMonth(e)===viewMonth);
@@ -921,9 +1030,9 @@ function mergeDuplicateExpenses(){
       if(idx>-1){ state.expenses.splice(idx,1); removedCount++; }
     }
   });
-  if(!mergedGroups){ alert('لا توجد بنود مكررة لنفس التصنيف في هذا الشهر'); return; }
+  if(!mergedGroups){ showToast('لا توجد بنود مكررة لنفس التصنيف في هذا الشهر'); return; }
   saveState(); render();
-  alert(`تم دمج ${mergedGroups} تصنيف مكرر (حُذف ${removedCount} بند بعد جمع مبلغه مع الأصل)`);
+  showToast(`تم دمج ${mergedGroups} تصنيف مكرر (حُذف ${removedCount} بند بعد جمع مبلغه مع الأصل)`);
 }
 function compressImage(file, maxDim, quality){
   return new Promise((resolve)=>{
@@ -988,6 +1097,7 @@ function setBudget(){
   saveState(); render();
 }
 
+showTab('home');
 populateCategorySelect();
 onCategoryChange();
 ['expDetails','reportDetails','yearDetails'].forEach(id=>{
