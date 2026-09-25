@@ -103,6 +103,12 @@ body{
 .modalBtns .mbCancel{background:var(--bg); color:var(--ink); border:1px solid var(--line)}
 .modalBtns .mbOk{background:var(--accent); color:#fff}
 .modalBtns .mbDanger{background:var(--danger); color:#fff}
+.imgViewerOverlay{
+  position:fixed; inset:0; z-index:310; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.78); opacity:0; pointer-events:none; transition:opacity .18s; padding:24px;
+}
+.imgViewerOverlay.show{opacity:1; pointer-events:auto}
+.imgViewerOverlay img{max-width:100%; max-height:100%; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.5)}
 h1{font-size:1.3rem; margin:0 0 2px}
 .sub{color:var(--sub); font-size:.85rem; margin-bottom:18px}
 .cards{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px}
@@ -249,11 +255,16 @@ details.expander[open] summary{margin-bottom:4px}
   <div class="splash-hint">اضغط في أي مكان للمتابعة</div>
 </div>
 
+<div id="imageViewerOverlay" class="imgViewerOverlay" onclick="closeImageViewer()">
+  <img id="imageViewerImg" src="" alt="">
+</div>
+
 <div id="modalOverlay" class="modalOverlay" onclick="modalBackdropClick(event)">
   <div class="modalBox">
     <div class="modalIcon" id="modalIcon" style="display:none"></div>
     <div class="modalMsg" id="modalMsg"></div>
     <input id="modalInput" type="text" style="display:none">
+    <input id="modalInput2" type="text" style="display:none">
     <div class="modalBtns">
       <button class="mbCancel" id="modalCancelBtn" style="display:none">إلغاء</button>
       <button class="mbOk" id="modalOkBtn">حسنًا</button>
@@ -338,6 +349,14 @@ details.expander[open] summary{margin-bottom:4px}
   <div class="formrow">
     <input id="expName" placeholder="تفاصيل المصروف (اختياري)">
     <button class="add" id="expSubmitBtn" style="flex:1" onclick="addExpense()">إضافة</button>
+  </div>
+  <div class="formrow">
+    <label class="filepick" id="expFileLabel" style="flex:1">📷 صورة الفاتورة (اختياري)<input id="expFile" type="file" accept="image/*"></label>
+  </div>
+  <div class="formrow" id="expReceiptPreviewRow" style="display:none; align-items:center; gap:8px">
+    <img id="expReceiptPreviewImg" style="width:44px; height:44px; border-radius:8px; object-fit:cover; border:1px solid var(--line); flex:0 0 auto">
+    <span class="sub" style="flex:1; margin-bottom:0">فيه صورة فاتورة مرفقة بالفعل</span>
+    <button class="del" onclick="clearExpReceiptPreview()">✕</button>
   </div>
   <button class="add" id="expCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditExpense()">إلغاء التعديل</button>
 
@@ -864,6 +883,18 @@ function triggerUndo(){
 function closeModal(){
   document.getElementById('modalOverlay').classList.remove('show');
 }
+function openImageViewer(src){
+  if(!src) return;
+  document.getElementById('imageViewerImg').src = src;
+  document.getElementById('imageViewerOverlay').classList.add('show');
+}
+function closeImageViewer(){
+  document.getElementById('imageViewerOverlay').classList.remove('show');
+}
+function openExpenseReceipt(id){
+  const e = state.expenses.find(x=>x.id===id);
+  if(e && e.receiptImage) openImageViewer(e.receiptImage);
+}
 function modalBackdropClick(e){
   if(e.target !== e.currentTarget) return;
   const cancelBtn = document.getElementById('modalCancelBtn');
@@ -923,6 +954,43 @@ function showPrompt(message, defaultValue='', opts={}){
       okBtn.removeEventListener('click', onOk);
       cancelBtn.removeEventListener('click', onCancel);
       inputEl.removeEventListener('keydown', onKeydown);
+      closeModal();
+    }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+/** Custom in-app two-field editor (name + value) — used for renaming/re-valuing an asset or liability. */
+function showEditNameValue(message, name, value){
+  return new Promise(resolve=>{
+    const overlay = document.getElementById('modalOverlay');
+    const iconEl = document.getElementById('modalIcon');
+    const msgEl = document.getElementById('modalMsg');
+    const inputEl = document.getElementById('modalInput');
+    const input2El = document.getElementById('modalInput2');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const okBtn = document.getElementById('modalOkBtn');
+
+    iconEl.style.display = 'block'; iconEl.textContent = '✎';
+    msgEl.textContent = message;
+    inputEl.style.display = 'block'; inputEl.type = 'text'; inputEl.placeholder = 'الاسم'; inputEl.value = name;
+    input2El.style.display = 'block'; input2El.type = 'number'; input2El.placeholder = 'القيمة بالريال'; input2El.value = value;
+    cancelBtn.style.display = 'block';
+    okBtn.textContent = 'حفظ'; okBtn.className = 'mbOk';
+    overlay.classList.add('show');
+    setTimeout(()=>{ inputEl.focus(); inputEl.select(); }, 60);
+
+    const onOk = () => { const n = inputEl.value.trim(); const v = input2El.value; cleanup(); resolve({name:n, value:v}); };
+    const onCancel = () => { cleanup(); resolve(null); };
+    const onKeydown = (e) => { if(e.key==='Enter'){ e.preventDefault(); onOk(); } };
+    inputEl.addEventListener('keydown', onKeydown);
+    input2El.addEventListener('keydown', onKeydown);
+    function cleanup(){
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      inputEl.removeEventListener('keydown', onKeydown);
+      input2El.removeEventListener('keydown', onKeydown);
+      input2El.style.display = 'none'; input2El.value = '';
       closeModal();
     }
     okBtn.addEventListener('click', onOk);
@@ -1384,6 +1452,7 @@ function expenseRowHtml(e){
   <div class="row">
     <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(e.name)}</div><div class="note"><span class="userdot" style="background:${userColor(e.user)}"></span>${c.label} · ${escapeHtml(e.user||'')} · ${e.date}</div></div>
     <div class="amt">${fmt(e.amount)}</div>
+    ${e.receiptImage ? `<button class="edit" onclick="openExpenseReceipt('${e.id}')" title="عرض صورة الفاتورة">📷</button>` : ''}
     <button class="edit" onclick="startEditExpense('${e.id}')">✎</button>
     <button class="del" onclick="removeItem('expenses','${e.id}')">✕</button>
   </div>`;
@@ -1516,17 +1585,20 @@ function renderList(elId, key){
     <div class="row">
       <div class="name">${escapeHtml(a.name)}</div>
       <div class="amt">${fmt(a.value)}</div>
-      <button class="edit" onclick="editItemValue('${key}','${a.id}')">✎</button>
+      <button class="edit" onclick="editItem('${key}','${a.id}')">✎</button>
       <button class="del" onclick="removeItem('${key}','${a.id}')">✕</button>
     </div>`).join('');
 }
-async function editItemValue(key, id){
+async function editItem(key, id){
   const item = state[key].find(i=>i.id===id);
   if(!item) return;
-  const v = await showPrompt(`القيمة الجديدة لـ "${item.name}" بالريال`, item.value, {inputType:'number'});
-  if(v === null) return;
-  const num = Number(v);
+  const label = key==='assets' ? 'الأصل' : key==='liabilities' ? 'الالتزام' : 'البند';
+  const result = await showEditNameValue(`تعديل ${label}`, item.name, item.value);
+  if(!result) return;
+  if(!result.name){ await showAlert('اكتب اسمًا صحيحًا'); return; }
+  const num = Number(result.value);
   if(isNaN(num) || num < 0){ await showAlert('قيمة غير صحيحة'); return; }
+  item.name = result.name;
   item.value = num;
   saveState(); render();
 }
@@ -1561,6 +1633,8 @@ function addItem(key){
   saveState(); render();
 }
 let editingExpenseId = null;
+let editingExpenseExistingReceipt = null;
+let editingExpenseReceiptCleared = false;
 function startEditExpense(id){
   const exp = state.expenses.find(e=>e.id===id);
   if(!exp) return;
@@ -1575,15 +1649,34 @@ function startEditExpense(id){
   document.getElementById('expVal').value = exp.amount;
   document.getElementById('expSubmitBtn').textContent = 'تحديث';
   document.getElementById('expCancelBtn').style.display = 'block';
+  editingExpenseReceiptCleared = false;
+  editingExpenseExistingReceipt = exp.receiptImage || null;
+  document.getElementById('expFile').value = '';
+  const receiptRow = document.getElementById('expReceiptPreviewRow');
+  if(editingExpenseExistingReceipt){
+    document.getElementById('expReceiptPreviewImg').src = editingExpenseExistingReceipt;
+    receiptRow.style.display = 'flex';
+  } else {
+    receiptRow.style.display = 'none';
+  }
   showTab('home');
   const valEl = document.getElementById('expVal');
   valEl.scrollIntoView({behavior:'smooth', block:'center'});
   valEl.focus();
 }
+function clearExpReceiptPreview(){
+  editingExpenseReceiptCleared = true;
+  editingExpenseExistingReceipt = null;
+  document.getElementById('expReceiptPreviewRow').style.display = 'none';
+}
 function cancelEditExpense(){
   editingExpenseId = null;
+  editingExpenseExistingReceipt = null;
+  editingExpenseReceiptCleared = false;
   document.getElementById('expName').value = '';
   document.getElementById('expVal').value = '';
+  document.getElementById('expFile').value = '';
+  document.getElementById('expReceiptPreviewRow').style.display = 'none';
   document.getElementById('expSubmitBtn').textContent = 'إضافة';
   document.getElementById('expCancelBtn').style.display = 'none';
 }
@@ -1625,26 +1718,38 @@ async function addExpense(){
     if(oldLiab) oldLiab.value = Number(oldLiab.value||0) + Number(existing.amount||0);
   }
   if(!name) name = catInfo(category).label;
+
+  const fileEl = document.getElementById('expFile');
+  let receiptImage = existing ? (editingExpenseReceiptCleared ? null : editingExpenseExistingReceipt) : null;
+  if(fileEl.files && fileEl.files[0]){
+    receiptImage = await compressImage(fileEl.files[0], 640, 0.6);
+  }
+
   if(existing){
     existing.name = name;
     existing.amount = amount;
     existing.category = category;
     existing.liabilityId = liabilityId;
+    existing.receiptImage = receiptImage;
   } else {
     state.expenses.push({
       id:uid(), name, amount,
       category,
       liabilityId,
+      receiptImage,
       user: window.currentUser||'أنا',
       date:new Date().toISOString().slice(0,10),
       month: viewMonth
     });
   }
-  nameEl.value=''; valEl.value='';
+  nameEl.value=''; valEl.value=''; fileEl.value='';
+  document.getElementById('expReceiptPreviewRow').style.display = 'none';
   if(category === 'liability_payment') populateLiabilitySelect();
   const wasEditing = !!existing;
   if(wasEditing){
     editingExpenseId = null;
+    editingExpenseExistingReceipt = null;
+    editingExpenseReceiptCleared = false;
     document.getElementById('expSubmitBtn').textContent = 'إضافة';
     document.getElementById('expCancelBtn').style.display = 'none';
   }
