@@ -473,7 +473,29 @@ details.expander[open] summary{margin-bottom:4px}
     <div class="card wide"><div class="label">إجمالي المصروف هذا الشهر</div><div class="val" id="topSpent">—</div></div>
   </div>
 
-  <div class="sub" style="margin-bottom:10px">توزيع مصاريف <span id="reportMonthLabel"></span> حسب التصنيف</div>
+  <details class="expander" id="zakatDetails">
+    <summary>🕌 حاسبة الزكاة (تقديرية)</summary>
+    <div style="margin-top:8px">
+      <div class="sub" style="margin-bottom:8px">تقدير تقريبي لزكاة المال، بناءً على قيمة الذهب اليوم والنقد المُدخل يدويًا، بعد خصم الالتزامات المستحقة. الزكاة تجب على المبلغ الذي حال عليه الحول (سنة هجرية كاملة) وبلغ النصاب فقط — هذا الرقم للاسترشاد، ويُستحسن مراجعة جهة شرعية موثوقة لحالتكم بالتفصيل.</div>
+      <div class="formrow">
+        <input id="zakatCashInput" placeholder="النقد والمدخرات (كاش، حسابات بنكية...)" type="number">
+        <button class="add" onclick="saveZakatCash()">حفظ</button>
+      </div>
+      <label style="display:flex; align-items:center; gap:6px; font-size:.85rem; color:var(--sub); margin-top:10px">
+        <input type="checkbox" id="zakatIncludeGold" checked onchange="renderZakat()"> تضمين قيمة الذهب
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; font-size:.85rem; color:var(--sub); margin-top:6px">
+        <input type="checkbox" id="zakatDeductLiab" checked onchange="renderZakat()"> خصم إجمالي الالتزامات المستحقة
+      </label>
+      <div class="cards" style="margin-top:12px; margin-bottom:0">
+        <div class="card"><div class="label">نصاب الزكاة اليوم</div><div class="val" id="zakatNisab" style="font-size:1rem">—</div></div>
+        <div class="card"><div class="label">إجمالي المال الزكوي</div><div class="val" id="zakatWealth" style="font-size:1rem">—</div></div>
+        <div class="card wide"><div class="label">الزكاة المستحقة (٢.٥٪)</div><div class="val" id="zakatDue" style="color:var(--accent2)">—</div></div>
+      </div>
+    </div>
+  </details>
+
+  <div class="sub" style="margin-bottom:10px; margin-top:16px">توزيع مصاريف <span id="reportMonthLabel"></span> حسب التصنيف</div>
   <div id="reportPreview"></div>
   <details id="reportDetails" class="expander">
     <summary>عرض كل التقارير</summary>
@@ -521,6 +543,7 @@ function normalizeState(s){
   if(!Array.isArray(s.gold)) s.gold = [];
   if(!Array.isArray(s.recurring)) s.recurring = [];
   if(!Array.isArray(s.goals)) s.goals = [];
+  if(typeof s.zakatCash !== 'number' || isNaN(s.zakatCash)) s.zakatCash = 0;
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
   // migrate: old single "budget" field -> per-month budgets map, applied to current month
   if(typeof s.budget === 'number' && s.budget > 0){
@@ -1392,6 +1415,7 @@ function render(){
   renderList('liabList','liabilities');
   renderGold();
   renderGoals();
+  renderZakat();
   if(document.getElementById('expCategory').value === 'liability_payment') populateLiabilitySelect();
 
   document.getElementById('monthLabel').textContent = monthLabel(viewMonth);
@@ -1708,6 +1732,56 @@ function renderGoals(){
   el.innerHTML = state.goals.slice().reverse().map(goalRowHtml).join('');
   const totalSaved = state.goals.reduce((s,g)=>s+Number(g.saved||0),0);
   totEl.textContent = fmt(totalSaved) + ' مدّخرة';
+}
+
+function saveZakatCash(){
+  const v = Number(document.getElementById('zakatCashInput').value) || 0;
+  state.zakatCash = v;
+  saveState();
+  renderZakat();
+  showToast('تم حفظ مبلغ النقد والمدخرات');
+}
+
+function renderZakat(){
+  const nisabEl = document.getElementById('zakatNisab');
+  const wealthEl = document.getElementById('zakatWealth');
+  const dueEl = document.getElementById('zakatDue');
+  const cashInput = document.getElementById('zakatCashInput');
+  const includeGoldEl = document.getElementById('zakatIncludeGold');
+  const deductLiabEl = document.getElementById('zakatDeductLiab');
+  if(!nisabEl || !wealthEl || !dueEl || !cashInput || !includeGoldEl || !deductLiabEl) return;
+
+  // never overwrite the field while the person is actively typing in it
+  if(document.activeElement !== cashInput){
+    cashInput.value = state.zakatCash ? state.zakatCash : '';
+  }
+
+  const cash = Number(state.zakatCash || 0);
+  const includeGold = includeGoldEl.checked;
+  const deductLiab = deductLiabEl.checked;
+  const goldValueTotal = state.gold.reduce((s,g)=>s + goldItemValue(g), 0);
+  const liabTotal = state.liabilities.reduce((s,l)=>s + Number(l.value||0), 0);
+
+  let wealth = cash + (includeGold ? goldValueTotal : 0);
+  if(deductLiab) wealth -= liabTotal;
+  wealth = Math.max(0, wealth);
+  wealthEl.textContent = fmt(wealth);
+
+  if(!goldPricePerGram21k){
+    nisabEl.textContent = 'جارِ تحديث سعر الذهب...';
+    dueEl.textContent = '—';
+    return;
+  }
+  const goldPricePerGram24k = goldPricePerGram21k / (21/24);
+  const nisabValue = 85 * goldPricePerGram24k; // النصاب: ما يعادل ٨٥ جم ذهب عيار ٢٤
+  nisabEl.textContent = fmt(nisabValue);
+
+  if(wealth >= nisabValue){
+    const due = wealth * 0.025;
+    dueEl.textContent = fmt(due);
+  } else {
+    dueEl.textContent = 'لم يبلغ النصاب بعد';
+  }
 }
 
 function addItem(key){
