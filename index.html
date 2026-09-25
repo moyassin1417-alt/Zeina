@@ -57,6 +57,17 @@ body{
   transition:opacity .25s, transform .25s; pointer-events:none;
 }
 .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+.splash{
+  position:fixed; inset:0; z-index:200; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; text-align:center; padding:32px;
+  background:linear-gradient(160deg, var(--accent), var(--accent2));
+  color:#fff; cursor:pointer;
+}
+.splash-icon{font-size:3rem; margin-bottom:18px}
+.splash-msg{font-size:1.25rem; font-weight:700; line-height:1.8; max-width:420px}
+.splash-hint{margin-top:30px; font-size:.72rem; opacity:.8}
+.splash.fadeout{animation:splashFade .4s ease forwards}
+@keyframes splashFade{ to{ opacity:0 } }
 h1{font-size:1.3rem; margin:0 0 2px}
 .sub{color:var(--sub); font-size:.85rem; margin-bottom:18px}
 .cards{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px}
@@ -192,6 +203,12 @@ details.expander[open] summary{margin-bottom:4px}
       <div class="sub" id="pwError" style="color:var(--danger); margin-top:6px"></div>
     </div>
   </div>
+</div>
+
+<div id="splashOverlay" class="splash" style="display:none" onclick="dismissSplash()">
+  <div class="splash-icon" id="splashIcon">💡</div>
+  <div class="splash-msg" id="splashMsg"></div>
+  <div class="splash-hint">اضغط في أي مكان للمتابعة</div>
 </div>
 
 <div id="appScreen" style="display:none; max-width:640px; margin:0 auto">
@@ -515,6 +532,77 @@ function showToast(msg){
 const USER_COLORS = {'بابا':'#3480b5', 'ماما':'#b5348d'};
 function userColor(name){ return USER_COLORS[name] || '#7d7669'; }
 
+// ---- Daily welcome message (once per day, on login) ----
+const DAILY_MESSAGES = {
+  advice: [
+    'أجمل بيت مش اللي فيه أغلى الأثاث، ده اللي فيه أكتر ضحكة.',
+    'كلمة «شكرًا» بين بابا وماما بتبني بيت مش بيهدّه أي خلاف.',
+    'خصّصوا نص ساعة يوميًا من غير موبايلات — تفرق أكتر مما تتخيلوا.',
+    'الاستماع لبعض أهم من إن حد يكون صح.',
+    'بيت فيه احترام، مش بيت فيه صوت عالي.',
+    'الدعم في اللحظات الصعبة بيتفتكر أكتر من أي هدية.',
+    'كل يوم فيه فرصة جديدة تبدأوا فيها صفحة.'
+  ],
+  parenting: [
+    'الطفل بيتعلم من اللي بيشوفه، مش بس من اللي بتقوله له.',
+    'احتضان صغير كل يوم بيبني ثقة كبيرة.',
+    'قول «لأ» بحزم وحب أفضل من الصراخ.',
+    'وقتك مع زينة دلوقتي هو اللي هيبني ذكرياتها بكرة.',
+    'كل مرحلة بتعدي بسرعة — استمتعوا بيها.',
+    'الصبر مع الأطفال مهارة بتتعلم، مش صفة بتتولد بيها.',
+    'قراءة قصة قبل النوم بتفرق أكتر مما تتخيلوا في نمو عقل طفلك.'
+  ],
+  romantic: [
+    'بابا وماما... النهاردة كمان، أنتم فريق واحد.',
+    'لسه فاكرين أول يوم اتقابلتوا فيه؟ ابتسموا شوية النهاردة.',
+    'قول لشريكك كلمة حلوة النهاردة من غير أي مناسبة.',
+    'أجمل حب هو اللي بيكبر بهدوء كل يوم.',
+    'مسكوا إيد بعض شوية النهاردة، حتى من غير سبب.',
+    'الشراكة الحقيقية بتبان في التفاصيل الصغيرة.'
+  ],
+  religious: [
+    'اللهم بارك لنا في بيتنا وأهلنا وذريتنا.',
+    'الحمد لله على نعمة الأمان والستر.',
+    'اللهم اجعل بيتنا عامرًا بذكرك ومحبتك.',
+    'سبحان الله وبحمده، سبحان الله العظيم.',
+    'اللهم ارزقنا القناعة وبارك لنا فيما رزقتنا.',
+    'اللهم احفظ زينة وارزقها الصحة والعافية.',
+    'لا حول ولا قوة إلا بالله.',
+    'اللهم اجعلنا من الشاكرين لنعمك.'
+  ],
+  joke: [
+    'قاعدة بيت زينة: مين ما يقفلش تاب المصاريف بعد الإضافة... يدفع القهوة! ☕😄',
+    'لو الميزانية خلصت بدري الشهر ده... ده مش خطأ في التطبيق، ده إحنا 😅',
+    'تحذير: كتابة «أخرى» في كل مصروف ممنوعة عرفًا في بيت زينة 😂',
+    'الذهب بيزيد سعره كل يوم إلا محفظتنا 😄',
+    'بابا: أنا اقتصادي. ماما: التطبيق بيقول العكس 😆',
+    'لو حد سألك «فين فلوسك؟» وريله التطبيق واسكت 😎'
+  ]
+};
+const CATEGORY_ICON = {advice:'💡', parenting:'👶', romantic:'❤️', religious:'🤲', joke:'😄'};
+function maybeShowDailySplash(){
+  const today = new Date().toISOString().slice(0,10);
+  if(localStorage.getItem('zainah_splash_date') === today) return;
+  const cats = Object.keys(DAILY_MESSAGES);
+  const cat = cats[Math.floor(Math.random()*cats.length)];
+  const list = DAILY_MESSAGES[cat];
+  const msg = list[Math.floor(Math.random()*list.length)];
+  document.getElementById('splashIcon').textContent = CATEGORY_ICON[cat];
+  document.getElementById('splashMsg').textContent = msg;
+  const el = document.getElementById('splashOverlay');
+  el.style.display = 'flex';
+  localStorage.setItem('zainah_splash_date', today);
+  clearTimeout(window._splashTimer);
+  window._splashTimer = setTimeout(dismissSplash, 4500);
+}
+function dismissSplash(){
+  const el = document.getElementById('splashOverlay');
+  if(el.style.display === 'none') return;
+  clearTimeout(window._splashTimer);
+  el.classList.add('fadeout');
+  setTimeout(()=>{ el.style.display = 'none'; el.classList.remove('fadeout'); }, 400);
+}
+
 // ---- Live gold price (XAU, 21K, SAR/gram) ----
 const GOLD_PRICE_CACHE_KEY = 'goldPriceCache_v1';
 const SAR_PER_USD = 3.75; // fixed peg
@@ -601,6 +689,7 @@ function doLogin(name){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   render();
+  maybeShowDailySplash();
 }
 function logout(){
   window.currentUser = null;
