@@ -285,6 +285,27 @@ details.expander[open] summary{margin-bottom:4px}
     </div>
   </details>
 
+  <div id="recurringBanner" style="display:none; margin-top:10px; align-items:center; justify-content:space-between; gap:8px; background:var(--bg); border:1px solid var(--warn); border-radius:10px; padding:10px 12px">
+    <span class="sub" id="recurringBannerText" style="color:var(--ink)"></span>
+    <button class="add" style="white-space:nowrap" onclick="applyAllRecurring()">إضافة الآن</button>
+  </div>
+
+  <details class="expander" style="margin-top:10px">
+    <summary>🔁 المصاريف الثابتة الشهرية (<span id="recurringCount">0</span>)</summary>
+    <div style="margin-top:8px">
+      <div class="sub" style="margin-bottom:6px">مصاريف بتتكرر كل شهر بنفس القيمة تقريبًا (إيجار، اشتراكات...) — سجّلها هنا مرة واحدة وبعدين ضيفها لأي شهر بضغطة واحدة</div>
+      <div id="recurringList"></div>
+      <div class="formrow" style="margin-top:8px">
+        <select id="recCategory"></select>
+        <input id="recVal" placeholder="المبلغ" type="number">
+      </div>
+      <div class="formrow">
+        <input id="recName" placeholder="اسم المصروف الثابت (إيجار، نتفلكس...)">
+        <button class="add" style="flex:1" onclick="addRecurring()">إضافة ثابت</button>
+      </div>
+    </div>
+  </details>
+
   <h2 style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px">مصاريف الشهر <span class="tot" id="expTotal"></span></h2>
   <div id="expPreview"></div>
   <details id="expDetails" class="expander">
@@ -384,6 +405,7 @@ function normalizeState(s){
   if(!Array.isArray(s.liabilities)) s.liabilities = [];
   if(!Array.isArray(s.expenses)) s.expenses = [];
   if(!Array.isArray(s.gold)) s.gold = [];
+  if(!Array.isArray(s.recurring)) s.recurring = [];
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
   // migrate: old single "budget" field -> per-month budgets map, applied to current month
   if(typeof s.budget === 'number' && s.budget > 0){
@@ -430,6 +452,115 @@ function populateCategorySelect(){
   const sel = document.getElementById('expCategory');
   if(!sel || sel.options.length) return;
   sel.innerHTML = CATS.map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
+}
+function populateRecurringCategorySelect(){
+  const sel = document.getElementById('recCategory');
+  if(!sel || sel.options.length) return;
+  sel.innerHTML = CATS.filter(c=>c.key!=='liability_payment').map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
+}
+function addRecurring(){
+  const catEl = document.getElementById('recCategory');
+  const valEl = document.getElementById('recVal');
+  const nameEl = document.getElementById('recName');
+  const category = catEl.value || 'other';
+  const amount = Number(valEl.value);
+  const name = nameEl.value.trim();
+  if(!amount){ valEl.focus(); return; }
+  if(!name){ alert('اكتب اسم المصروف الثابت (مثال: إيجار)'); nameEl.focus(); return; }
+  state.recurring.push({ id:uid(), name, amount, category, active:true });
+  valEl.value=''; nameEl.value='';
+  saveState(); render();
+  showToast('تمت إضافة مصروف ثابت جديد');
+}
+function editRecurringValue(id){
+  const r = state.recurring.find(x=>x.id===id);
+  if(!r) return;
+  const v = prompt(`القيمة الجديدة لـ "${r.name}" بالريال`, r.amount);
+  if(v === null) return;
+  const num = Number(v);
+  if(isNaN(num) || num < 0){ alert('قيمة غير صحيحة'); return; }
+  r.amount = num;
+  saveState(); render();
+}
+function toggleRecurringActive(id){
+  const r = state.recurring.find(x=>x.id===id);
+  if(!r) return;
+  r.active = !r.active;
+  saveState(); render();
+}
+function removeRecurring(id){
+  if(!confirm('حذف هذا المصروف الثابت؟ (المصاريف اللي اتضافت به قبل كده مش هتتأثر)')) return;
+  state.recurring = state.recurring.filter(x=>x.id!==id);
+  saveState(); render();
+}
+function isRecurringAppliedThisMonth(id){
+  return state.expenses.some(e=>e.recurringId===id && expenseMonth(e)===viewMonth);
+}
+function applyOneRecurring(id){
+  const r = state.recurring.find(x=>x.id===id);
+  if(!r || isRecurringAppliedThisMonth(id)) return;
+  state.expenses.push({
+    id:uid(), name:r.name, amount:r.amount, category:r.category,
+    recurringId:r.id,
+    user: window.currentUser||'أنا',
+    date:new Date().toISOString().slice(0,10),
+    month: viewMonth
+  });
+  saveState(); render();
+  showToast(`تمت إضافة "${r.name}" لشهر ${monthLabel(viewMonth)}`);
+}
+function applyAllRecurring(){
+  const pending = state.recurring.filter(r=>r.active && !isRecurringAppliedThisMonth(r.id));
+  if(!pending.length) return;
+  pending.forEach(r=>{
+    state.expenses.push({
+      id:uid(), name:r.name, amount:r.amount, category:r.category,
+      recurringId:r.id,
+      user: window.currentUser||'أنا',
+      date:new Date().toISOString().slice(0,10),
+      month: viewMonth
+    });
+  });
+  saveState(); render();
+  showToast(`تمت إضافة ${pending.length} مصروف ثابت لشهر ${monthLabel(viewMonth)}`);
+}
+function renderRecurring(){
+  const listEl = document.getElementById('recurringList');
+  const countEl = document.getElementById('recurringCount');
+  countEl.textContent = state.recurring.length;
+  if(!state.recurring.length){
+    listEl.innerHTML = '<div class="empty">لا توجد مصاريف ثابتة مسجّلة بعد</div>';
+  } else {
+    listEl.innerHTML = state.recurring.map(r=>{
+      const c = catInfo(r.category);
+      const applied = isRecurringAppliedThisMonth(r.id);
+      let actionBtn;
+      if(!r.active){
+        actionBtn = `<button class="edit" onclick="toggleRecurringActive('${r.id}')" title="تفعيل">▶</button>`;
+      } else if(applied){
+        actionBtn = `<span class="note" style="white-space:nowrap">✓ أُضيف</span><button class="edit" onclick="toggleRecurringActive('${r.id}')" title="إيقاف مؤقت">⏸</button>`;
+      } else {
+        actionBtn = `<button class="edit" onclick="applyOneRecurring('${r.id}')" title="أضف لهذا الشهر">+أضف</button><button class="edit" onclick="toggleRecurringActive('${r.id}')" title="إيقاف مؤقت">⏸</button>`;
+      }
+      return `
+      <div class="row">
+        <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(r.name)}</div><div class="note">${c.label}${r.active?'':' · متوقف مؤقتًا'}</div></div>
+        <div class="amt">${fmt(r.amount)}</div>
+        ${actionBtn}
+        <button class="edit" onclick="editRecurringValue('${r.id}')">✎</button>
+        <button class="del" onclick="removeRecurring('${r.id}')">✕</button>
+      </div>`;
+    }).join('');
+  }
+  const pending = state.recurring.filter(r=>r.active && !isRecurringAppliedThisMonth(r.id));
+  const banner = document.getElementById('recurringBanner');
+  if(pending.length){
+    banner.style.display = 'flex';
+    document.getElementById('recurringBannerText').textContent =
+      `عندك ${pending.length} مصروف ثابت لسه ما اتضافش لشهر ${monthLabel(viewMonth)}`;
+  } else {
+    banner.style.display = 'none';
+  }
 }
 function onCategoryChange(){
   const cat = document.getElementById('expCategory').value;
@@ -937,6 +1068,7 @@ function render(){
 
   renderReport(monthExp, expTotal);
   renderYearReport();
+  renderRecurring();
 }
 function expenseRowHtml(e){
   const c = catInfo(e.category);
@@ -1344,6 +1476,7 @@ function setBudget(){
 
 showTab('home');
 populateCategorySelect();
+populateRecurringCategorySelect();
 onCategoryChange();
 ['expDetails','reportDetails','yearDetails'].forEach(id=>{
   const d = document.getElementById(id);
