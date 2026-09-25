@@ -453,6 +453,14 @@ details.expander[open] summary{margin-bottom:4px}
   <div class="formrow">
     <button class="add" style="flex:1" onclick="addGold()">إضافة القطعة</button>
   </div>
+
+  <h2 style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px">🎯 أهداف الادخار <span class="tot" id="goalsTotal"></span></h2>
+  <div id="goalsList"></div>
+  <div class="formrow">
+    <input id="goalName" placeholder="اسم الهدف (عمرة، صندوق زينة...)">
+    <input id="goalTarget" placeholder="المبلغ المستهدف" type="number">
+    <button class="add" onclick="addGoal()">إضافة</button>
+  </div>
 </div>
 
 <div class="section tabview" data-tab="reports">
@@ -512,6 +520,7 @@ function normalizeState(s){
   if(!Array.isArray(s.expenses)) s.expenses = [];
   if(!Array.isArray(s.gold)) s.gold = [];
   if(!Array.isArray(s.recurring)) s.recurring = [];
+  if(!Array.isArray(s.goals)) s.goals = [];
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
   // migrate: old single "budget" field -> per-month budgets map, applied to current month
   if(typeof s.budget === 'number' && s.budget > 0){
@@ -1210,7 +1219,7 @@ function exportBackup(){
 function checkBackupReminder(){
   const bar = document.getElementById('backupReminderBar');
   if(!bar) return;
-  const hasData = (state.assets.length + state.liabilities.length + state.expenses.length + state.gold.length) > 0;
+  const hasData = (state.assets.length + state.liabilities.length + state.expenses.length + state.gold.length + state.goals.length) > 0;
   if(!hasData){ bar.style.display = 'none'; return; }
   const today = new Date().toISOString().slice(0,10);
   const snoozeUntil = localStorage.getItem('zainah_backup_snooze_until');
@@ -1382,6 +1391,7 @@ function render(){
   renderList('assetsList','assets');
   renderList('liabList','liabilities');
   renderGold();
+  renderGoals();
   if(document.getElementById('expCategory').value === 'liability_payment') populateLiabilitySelect();
 
   document.getElementById('monthLabel').textContent = monthLabel(viewMonth);
@@ -1622,6 +1632,83 @@ function renderGold(){
   }).join('');
 }
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ---- Savings goals ----
+function addGoal(){
+  const nameEl = document.getElementById('goalName');
+  const targetEl = document.getElementById('goalTarget');
+  const name = nameEl.value.trim();
+  const target = Number(targetEl.value);
+  if(!name || !target) return;
+  state.goals.push({id:uid(), name, target, saved:0});
+  nameEl.value=''; targetEl.value='';
+  saveState(); render();
+  showToast('تمت إضافة هدف ادخار جديد');
+}
+async function contributeToGoal(id){
+  const g = state.goals.find(x=>x.id===id);
+  if(!g) return;
+  const v = await showPrompt(`أضف مبلغ لهدف "${g.name}" (اكتب رقم سالب للسحب)`, '', {inputType:'number'});
+  if(v === null) return;
+  const num = Number(v);
+  if(isNaN(num) || num===0){ await showAlert('قيمة غير صحيحة'); return; }
+  g.saved = Math.max(0, Number(g.saved||0) + num);
+  saveState(); render();
+  showToast(num>0 ? `تمت إضافة ${fmt(num)} لهدف "${g.name}"` : `تم سحب ${fmt(Math.abs(num))} من هدف "${g.name}"`);
+}
+async function editGoal(id){
+  const g = state.goals.find(x=>x.id===id);
+  if(!g) return;
+  const result = await showEditNameValue('تعديل الهدف (الاسم والمبلغ المستهدف)', g.name, g.target);
+  if(!result) return;
+  if(!result.name){ await showAlert('اكتب اسمًا صحيحًا'); return; }
+  const num = Number(result.value);
+  if(isNaN(num) || num < 0){ await showAlert('قيمة غير صحيحة'); return; }
+  g.name = result.name;
+  g.target = num;
+  saveState(); render();
+}
+function removeGoal(id){
+  const idx = state.goals.findIndex(x=>x.id===id);
+  if(idx === -1) return;
+  const item = state.goals[idx];
+  state.goals.splice(idx,1);
+  saveState(); render();
+  showUndoToast('تم حذف هدف الادخار', () => {
+    state.goals.splice(idx,0,item);
+    saveState(); render();
+  });
+}
+function goalRowHtml(g){
+  const pct = g.target > 0 ? Math.min(100, Math.round((Number(g.saved||0)/g.target)*100)) : 0;
+  const reached = g.target > 0 && Number(g.saved||0) >= g.target;
+  return `
+  <div class="row" style="flex-direction:column; align-items:stretch; gap:6px">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px">
+      <div class="name">${reached?'🎉 ':'🎯 '}${escapeHtml(g.name)}</div>
+      <div style="display:flex; gap:2px">
+        <button class="edit" onclick="contributeToGoal('${g.id}')" title="إضافة/سحب مبلغ">+ إضافة</button>
+        <button class="edit" onclick="editGoal('${g.id}')">✎</button>
+        <button class="del" onclick="removeGoal('${g.id}')">✕</button>
+      </div>
+    </div>
+    <div class="budgetbar"><div style="width:${pct}%; background:${reached?'var(--accent2)':'var(--accent)'}"></div></div>
+    <div class="sub" style="margin-bottom:0">${fmt(g.saved||0)} من ${fmt(g.target)} (${pct}%)</div>
+  </div>`;
+}
+function renderGoals(){
+  const el = document.getElementById('goalsList');
+  const totEl = document.getElementById('goalsTotal');
+  if(!el || !totEl) return;
+  if(!state.goals.length){
+    el.innerHTML = '<div class="empty">لا توجد أهداف ادخار بعد</div>';
+    totEl.textContent = '';
+    return;
+  }
+  el.innerHTML = state.goals.slice().reverse().map(goalRowHtml).join('');
+  const totalSaved = state.goals.reduce((s,g)=>s+Number(g.saved||0),0);
+  totEl.textContent = fmt(totalSaved) + ' مدّخرة';
+}
 
 function addItem(key){
   const nameEl = document.getElementById(key==='assets'?'assetName':'liabName');
