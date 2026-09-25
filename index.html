@@ -48,6 +48,8 @@ body{
   display:flex; align-items:center; justify-content:center; text-align:center;
   font-size:.62rem; font-weight:700; color:var(--ink); padding:4px; line-height:1.15;
 }
+.linechart{width:100%; height:100px; display:block; margin-bottom:10px}
+.linechart .lc-pt{cursor:default}
 .toast{
   position:fixed; bottom:84px; left:50%; transform:translateX(-50%) translateY(10px);
   background:var(--ink); color:var(--bg); padding:10px 18px; border-radius:10px;
@@ -208,7 +210,7 @@ details.expander[open] summary{margin-bottom:4px}
 
 <div class="notice">هذه نسخة محلية: كل التعديلات تُحفظ تلقائيًا في هذا الجهاز، وتتزامن مع باقي الأسرة فقط بعد تفعيل المزامنة أعلاه.</div>
 
-<div class="section tabview" data-tab="expenses">
+<div class="section tabview" data-tab="home">
   <div class="monthnav">
     <button class="navbtn" onclick="changeMonth(-1)" title="الشهر السابق" style="width:auto; padding:0 10px; font-size:.8rem">السابق</button>
     <span class="monthlabel" id="monthLabel"></span>
@@ -254,7 +256,7 @@ details.expander[open] summary{margin-bottom:4px}
   </details>
 </div>
 
-<div class="section tabview" data-tab="assets">
+<div class="section tabview" data-tab="liabilities">
   <h2>الالتزامات <span class="tot" id="liabTotal"></span></h2>
   <div id="liabList"></div>
   <div class="formrow">
@@ -289,18 +291,15 @@ details.expander[open] summary{margin-bottom:4px}
   </div>
 </div>
 
-<div class="tabview" data-tab="home">
-<div class="cards">
-  <div class="card"><div class="label">إجمالي الأصول</div><div class="val" id="topAssets">—</div><div class="note" id="topAssetsGoldNote" style="font-size:11px; opacity:.7; margin-top:2px"></div></div>
-  <div class="card"><div class="label">إجمالي الالتزامات</div><div class="val" id="topLiab">—</div></div>
-  <div class="card"><div class="label">صافي الثروة</div><div class="val" id="netWorth">—</div></div>
-  <div class="card"><div class="label">الميزانية المتبقية هذا الشهر</div><div class="val" id="remaining">—</div></div>
-  <div class="card wide"><div class="label">إجمالي المصروف هذا الشهر</div><div class="val" id="topSpent">—</div></div>
-</div>
-</div>
-
 <div class="section tabview" data-tab="reports">
   <h2>📊 التقارير والملخص</h2>
+  <div class="cards" style="margin-bottom:14px">
+    <div class="card"><div class="label">إجمالي الأصول</div><div class="val" id="topAssets">—</div><div class="note" id="topAssetsGoldNote" style="font-size:11px; opacity:.7; margin-top:2px"></div></div>
+    <div class="card"><div class="label">إجمالي الالتزامات</div><div class="val" id="topLiab">—</div></div>
+    <div class="card"><div class="label">صافي الثروة</div><div class="val" id="netWorth">—</div></div>
+    <div class="card"><div class="label">الميزانية المتبقية هذا الشهر</div><div class="val" id="remaining">—</div></div>
+    <div class="card wide"><div class="label">إجمالي المصروف هذا الشهر</div><div class="val" id="topSpent">—</div></div>
+  </div>
 
   <div class="sub" style="margin-bottom:10px">توزيع مصاريف <span id="reportMonthLabel"></span> حسب التصنيف</div>
   <div id="reportPreview"></div>
@@ -319,6 +318,7 @@ details.expander[open] summary{margin-bottom:4px}
     <div class="card"><div class="label">إجمالي مصاريف السنة</div><div class="val" id="yearTotal">—</div></div>
     <div class="card"><div class="label">أكثر تصنيف صرفت عليه</div><div class="val" id="yearTopCat" style="font-size:.95rem">—</div></div>
   </div>
+  <div id="yearChart"></div>
   <div class="sub" style="margin-bottom:8px">مصاريف كل شهر</div>
   <div id="yearMonthPreview"></div>
   <details id="yearDetails" class="expander">
@@ -330,8 +330,8 @@ details.expander[open] summary{margin-bottom:4px}
 <div class="toast" id="toastEl"></div>
 <button class="fab" id="fabAdd" onclick="fabAddExpense()" title="إضافة مصروف" aria-label="إضافة مصروف">+</button>
 <div class="bottomnav" id="bottomNav">
-  <button data-tab="home" onclick="showTab('home')"><span class="ic">🏠</span>الرئيسية</button>
-  <button data-tab="expenses" onclick="showTab('expenses')"><span class="ic">💰</span>المصاريف</button>
+  <button data-tab="home" onclick="showTab('home')"><span class="ic">💰</span>المصاريف</button>
+  <button data-tab="liabilities" onclick="showTab('liabilities')"><span class="ic">🏦</span>الالتزامات</button>
   <button data-tab="assets" onclick="showTab('assets')"><span class="ic">📦</span>الأصول</button>
   <button data-tab="reports" onclick="showTab('reports')"><span class="ic">📊</span>التقارير</button>
 </div>
@@ -485,7 +485,7 @@ function showTab(tab){
   window.scrollTo({top:0, behavior:'auto'});
 }
 function fabAddExpense(){
-  showTab('expenses');
+  showTab('home');
   setTimeout(()=>{
     const el = document.getElementById('expVal');
     if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
@@ -826,6 +826,34 @@ function renderYearReport(){
     const topIdx = totals.indexOf(Math.max(...totals));
     previewEl.innerHTML = monthRowHtml(topIdx);
   }
+  document.getElementById('yearChart').innerHTML = yExp.length ? lineChartHtml(totals) : '';
+}
+function lineChartHtml(totals){
+  const w = 320, h = 100, padX = 10, padY = 14;
+  const max = Math.max(1, ...totals);
+  const stepX = (w - padX*2) / (totals.length - 1);
+  const points = totals.map((t,i)=>{
+    const x = padX + i*stepX;
+    const y = h - padY - (t/max)*(h - padY*2);
+    return [x, y];
+  });
+  const pathD = points.map((p,i)=> (i===0?'M':'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  const areaD = `${pathD} L${points[points.length-1][0].toFixed(1)},${h-padY} L${points[0][0].toFixed(1)},${h-padY} Z`;
+  const dots = points.map((p,i)=>
+    `<circle class="lc-pt" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="var(--accent)"><title>${AR_MONTHS[i]}: ${fmt(totals[i])}</title></circle>`
+  ).join('');
+  return `
+  <svg class="linechart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="lcGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="${areaD}" fill="url(#lcGrad)" stroke="none"/>
+    <path d="${pathD}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>`;
 }
 function renderReport(monthExp, expTotal){
   const el = document.getElementById('reportList');
