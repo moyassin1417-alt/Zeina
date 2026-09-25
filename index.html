@@ -68,6 +68,32 @@ body{
 .splash-hint{margin-top:30px; font-size:.72rem; opacity:.8}
 .splash.fadeout{animation:splashFade .4s ease forwards}
 @keyframes splashFade{ to{ opacity:0 } }
+.modalOverlay{
+  position:fixed; inset:0; z-index:300; display:flex; align-items:flex-end;
+  justify-content:center; background:rgba(0,0,0,.5); padding:0;
+  opacity:0; pointer-events:none; transition:opacity .18s;
+}
+.modalOverlay.show{opacity:1; pointer-events:auto}
+.modalBox{
+  background:var(--card); color:var(--ink); width:100%; max-width:420px;
+  border-radius:18px 18px 0 0; padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 30px rgba(0,0,0,.3); transform:translateY(16px);
+  transition:transform .18s; max-height:80vh; overflow-y:auto;
+}
+.modalOverlay.show .modalBox{transform:translateY(0)}
+@media (min-width:480px){
+  .modalOverlay{align-items:center}
+  .modalBox{border-radius:16px; transform:translateY(0) scale(.96)}
+  .modalOverlay.show .modalBox{transform:translateY(0) scale(1)}
+}
+.modalIcon{font-size:1.8rem; margin-bottom:8px}
+.modalMsg{font-size:.95rem; line-height:1.6; white-space:pre-line; margin-bottom:14px}
+.modalBox input{width:100%; margin-bottom:14px; box-sizing:border-box}
+.modalBtns{display:flex; gap:8px}
+.modalBtns button{flex:1; border:none; border-radius:10px; padding:11px; font-size:.9rem; font-weight:600; cursor:pointer}
+.modalBtns .mbCancel{background:var(--bg); color:var(--ink); border:1px solid var(--line)}
+.modalBtns .mbOk{background:var(--accent); color:#fff}
+.modalBtns .mbDanger{background:var(--danger); color:#fff}
 h1{font-size:1.3rem; margin:0 0 2px}
 .sub{color:var(--sub); font-size:.85rem; margin-bottom:18px}
 .cards{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px}
@@ -209,6 +235,18 @@ details.expander[open] summary{margin-bottom:4px}
   <div class="splash-icon" id="splashIcon">💡</div>
   <div class="splash-msg" id="splashMsg"></div>
   <div class="splash-hint">اضغط في أي مكان للمتابعة</div>
+</div>
+
+<div id="modalOverlay" class="modalOverlay" onclick="modalBackdropClick(event)">
+  <div class="modalBox">
+    <div class="modalIcon" id="modalIcon" style="display:none"></div>
+    <div class="modalMsg" id="modalMsg"></div>
+    <input id="modalInput" type="text" style="display:none">
+    <div class="modalBtns">
+      <button class="mbCancel" id="modalCancelBtn" style="display:none">إلغاء</button>
+      <button class="mbOk" id="modalOkBtn">حسنًا</button>
+    </div>
+  </div>
 </div>
 
 <div id="appScreen" style="display:none; max-width:640px; margin:0 auto">
@@ -478,7 +516,7 @@ function populateRecurringCategorySelect(){
   if(!sel || sel.options.length) return;
   sel.innerHTML = CATS.filter(c=>c.key!=='liability_payment').map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
 }
-function addRecurring(){
+async function addRecurring(){
   const catEl = document.getElementById('recCategory');
   const valEl = document.getElementById('recVal');
   const nameEl = document.getElementById('recName');
@@ -486,19 +524,19 @@ function addRecurring(){
   const amount = Number(valEl.value);
   const name = nameEl.value.trim();
   if(!amount){ valEl.focus(); return; }
-  if(!name){ alert('اكتب اسم المصروف الثابت (مثال: إيجار)'); nameEl.focus(); return; }
+  if(!name){ await showAlert('اكتب اسم المصروف الثابت (مثال: إيجار)'); nameEl.focus(); return; }
   state.recurring.push({ id:uid(), name, amount, category, active:true });
   valEl.value=''; nameEl.value='';
   saveState(); render();
   showToast('تمت إضافة مصروف ثابت جديد');
 }
-function editRecurringValue(id){
+async function editRecurringValue(id){
   const r = state.recurring.find(x=>x.id===id);
   if(!r) return;
-  const v = prompt(`القيمة الجديدة لـ "${r.name}" بالريال`, r.amount);
+  const v = await showPrompt(`القيمة الجديدة لـ "${r.name}" بالريال`, r.amount, {inputType:'number'});
   if(v === null) return;
   const num = Number(v);
-  if(isNaN(num) || num < 0){ alert('قيمة غير صحيحة'); return; }
+  if(isNaN(num) || num < 0){ await showAlert('قيمة غير صحيحة'); return; }
   r.amount = num;
   saveState(); render();
 }
@@ -508,8 +546,8 @@ function toggleRecurringActive(id){
   r.active = !r.active;
   saveState(); render();
 }
-function removeRecurring(id){
-  if(!confirm('حذف هذا المصروف الثابت؟ (المصاريف اللي اتضافت به قبل كده مش هتتأثر)')) return;
+async function removeRecurring(id){
+  if(!(await showConfirm('حذف هذا المصروف الثابت؟ (المصاريف اللي اتضافت به قبل كده مش هتتأثر)', {danger:true}))) return;
   state.recurring = state.recurring.filter(x=>x.id!==id);
   saveState(); render();
 }
@@ -724,7 +762,7 @@ function monthTotal(ym){
 let dirty = false;
 function saveState(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){
-    alert('تعذّر الحفظ — قد تكون مساحة التخزين ممتلئة (خصوصًا بسبب الصور).');
+    showAlert('تعذّر الحفظ — قد تكون مساحة التخزين ممتلئة (خصوصًا بسبب الصور).');
   }
   dirty = true;
   syncPush();
@@ -762,6 +800,75 @@ function showToast(msg){
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>{ el.classList.remove('show'); }, 3200);
+}
+
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+function modalBackdropClick(e){
+  if(e.target !== e.currentTarget) return;
+  const cancelBtn = document.getElementById('modalCancelBtn');
+  if(cancelBtn.style.display !== 'none'){ cancelBtn.click(); }
+  else { document.getElementById('modalOkBtn').click(); }
+}
+function openModalBase({icon, message, showInput, inputValue, inputType, showCancel, okText, okDanger}){
+  const overlay = document.getElementById('modalOverlay');
+  const iconEl = document.getElementById('modalIcon');
+  const msgEl = document.getElementById('modalMsg');
+  const inputEl = document.getElementById('modalInput');
+  const cancelBtn = document.getElementById('modalCancelBtn');
+  const okBtn = document.getElementById('modalOkBtn');
+
+  iconEl.style.display = icon ? 'block' : 'none';
+  iconEl.textContent = icon || '';
+  msgEl.textContent = message || '';
+  inputEl.style.display = showInput ? 'block' : 'none';
+  inputEl.type = inputType || 'text';
+  inputEl.value = showInput ? (inputValue ?? '') : '';
+  cancelBtn.style.display = showCancel ? 'block' : 'none';
+  okBtn.textContent = okText || 'حسنًا';
+  okBtn.className = okDanger ? 'mbDanger' : 'mbOk';
+  overlay.classList.add('show');
+  if(showInput){ setTimeout(()=>{ inputEl.focus(); inputEl.select(); }, 60); }
+  return { overlay, inputEl, cancelBtn, okBtn };
+}
+/** Custom in-app alert — replaces the native alert() so it matches the app's own look. */
+function showAlert(message, opts={}){
+  return new Promise(resolve=>{
+    const { okBtn } = openModalBase({ icon: opts.icon ?? 'ℹ️', message, showCancel:false, okText: opts.okText || 'حسنًا' });
+    const onOk = () => { cleanup(); resolve(); };
+    function cleanup(){ okBtn.removeEventListener('click', onOk); closeModal(); }
+    okBtn.addEventListener('click', onOk);
+  });
+}
+/** Custom in-app confirm — replaces the native confirm(); resolves true/false. */
+function showConfirm(message, opts={}){
+  return new Promise(resolve=>{
+    const { okBtn, cancelBtn } = openModalBase({ icon: opts.icon ?? '⚠️', message, showCancel:true, okText: opts.okText || 'تأكيد', okDanger: opts.danger });
+    const onOk = () => { cleanup(); resolve(true); };
+    const onCancel = () => { cleanup(); resolve(false); };
+    function cleanup(){ okBtn.removeEventListener('click', onOk); cancelBtn.removeEventListener('click', onCancel); closeModal(); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+/** Custom in-app prompt — replaces the native prompt(); resolves the entered string, or null on cancel. */
+function showPrompt(message, defaultValue='', opts={}){
+  return new Promise(resolve=>{
+    const { okBtn, cancelBtn, inputEl } = openModalBase({ icon: opts.icon ?? '✎', message, showInput:true, inputValue:defaultValue, inputType:opts.inputType, showCancel:true, okText: opts.okText || 'حفظ' });
+    const onOk = () => { const v = inputEl.value; cleanup(); resolve(v); };
+    const onCancel = () => { cleanup(); resolve(null); };
+    const onKeydown = (e) => { if(e.key==='Enter'){ e.preventDefault(); onOk(); } };
+    inputEl.addEventListener('keydown', onKeydown);
+    function cleanup(){
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      inputEl.removeEventListener('keydown', onKeydown);
+      closeModal();
+    }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
 }
 
 // ---- Per-user color ----
@@ -973,11 +1080,11 @@ function importBackupFile(event){
   const file = event.target.files && event.target.files[0];
   if(!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     let parsed;
     try{ parsed = JSON.parse(reader.result); }
-    catch(e){ alert('تعذّر قراءة الملف: تأكد أنه ملف نسخة احتياطية صحيح (JSON)'); event.target.value=''; return; }
-    const ok = confirm('استيراد هذه النسخة سيستبدل كل البيانات الحالية في هذا الجهاز بالكامل. متأكد؟');
+    catch(e){ await showAlert('تعذّر قراءة الملف: تأكد أنه ملف نسخة احتياطية صحيح (JSON)'); event.target.value=''; return; }
+    const ok = await showConfirm('استيراد هذه النسخة سيستبدل كل البيانات الحالية في هذا الجهاز بالكامل. متأكد؟', {danger:true});
     if(!ok){ event.target.value=''; return; }
     state = normalizeState(parsed);
     saveState();
@@ -985,7 +1092,7 @@ function importBackupFile(event){
     showToast('تم استيراد النسخة الاحتياطية بنجاح');
     event.target.value = '';
   };
-  reader.onerror = () => { alert('حدث خطأ أثناء قراءة الملف'); event.target.value=''; };
+  reader.onerror = () => { showAlert('حدث خطأ أثناء قراءة الملف'); event.target.value=''; };
   reader.readAsText(file, 'utf-8');
 }
 function exportExpensesCSV(){
@@ -1005,7 +1112,7 @@ function exportExpensesCSV(){
 }
 async function createSyncBin(){
   const key = document.getElementById('syncKey').value.trim();
-  if(!key){ alert('من فضلك الصق المفتاح أولاً'); return; }
+  if(!key){ await showAlert('من فضلك الصق المفتاح أولاً'); return; }
   setSyncStatus(false,'جاري الإنشاء...');
   try{
     const res = await fetch('https://api.jsonbin.io/v3/b', {
@@ -1023,18 +1130,18 @@ async function createSyncBin(){
     localStorage.setItem('zainah_key', syncKey);
     localStorage.setItem('zainah_bin', syncBin);
     document.getElementById('syncBin').value = syncBin;
-    alert('تم الإنشاء! انسخ المفتاح ورقم الملف ده وابعتهم للطرف التاني عشان يدوس "اتصال بملف موجود":\n\nرقم الملف: '+syncBin);
+    await showAlert('تم الإنشاء! انسخ المفتاح ورقم الملف ده وابعتهم للطرف التاني عشان يدوس "اتصال بملف موجود":\n\nرقم الملف: '+syncBin);
     setSyncStatus(true,'المزامنة مفعّلة');
   }catch(e){
     console.error('createSyncBin error:', e);
     setSyncStatus(false,'فشل الإنشاء');
-    alert('فشل الإنشاء. تفاصيل الخطأ:\n\n'+(e.message||e)+'\n\nلو الرسالة "Failed to fetch" فده على الأغلب مشكلة اتصال بالإنترنت أو حجب من المتصفح، مش خطأ في المفتاح.');
+    await showAlert('فشل الإنشاء. تفاصيل الخطأ:\n\n'+(e.message||e)+'\n\nلو الرسالة "Failed to fetch" فده على الأغلب مشكلة اتصال بالإنترنت أو حجب من المتصفح، مش خطأ في المفتاح.');
   }
 }
 async function joinSyncBin(){
   const key = document.getElementById('syncKey').value.trim();
   const bin = document.getElementById('syncBin').value.trim();
-  if(!key || !bin){ alert('محتاج المفتاح ورقم الملف مع بعض'); return; }
+  if(!key || !bin){ await showAlert('محتاج المفتاح ورقم الملف مع بعض'); return; }
   syncKey = key; syncBin = bin;
   localStorage.setItem('zainah_key', syncKey);
   localStorage.setItem('zainah_bin', syncBin);
@@ -1063,11 +1170,11 @@ async function syncPull(announce){
     saveLocalOnly();
     render();
     setSyncStatus(true,'متزامن ✓');
-    if(announce) alert('تم الاتصال بنجاح، البيانات اتحدّثت.');
+    if(announce) await showAlert('تم الاتصال بنجاح، البيانات اتحدّثت.');
   }catch(e){
     console.error('syncPull error:', e);
     setSyncStatus(false,'تعذّر الاتصال');
-    if(announce) alert('تعذّر الاتصال. تفاصيل الخطأ:\n\n'+(e.message||e));
+    if(announce) await showAlert('تعذّر الاتصال. تفاصيل الخطأ:\n\n'+(e.message||e));
   }
   syncing = false;
 }
@@ -1306,13 +1413,13 @@ function renderList(elId, key){
       <button class="del" onclick="removeItem('${key}','${a.id}')">✕</button>
     </div>`).join('');
 }
-function editItemValue(key, id){
+async function editItemValue(key, id){
   const item = state[key].find(i=>i.id===id);
   if(!item) return;
-  const v = prompt(`القيمة الجديدة لـ "${item.name}" بالريال`, item.value);
+  const v = await showPrompt(`القيمة الجديدة لـ "${item.name}" بالريال`, item.value, {inputType:'number'});
   if(v === null) return;
   const num = Number(v);
-  if(isNaN(num) || num < 0){ alert('قيمة غير صحيحة'); return; }
+  if(isNaN(num) || num < 0){ await showAlert('قيمة غير صحيحة'); return; }
   item.value = num;
   saveState(); render();
 }
@@ -1373,7 +1480,7 @@ function cancelEditExpense(){
   document.getElementById('expSubmitBtn').textContent = 'إضافة';
   document.getElementById('expCancelBtn').style.display = 'none';
 }
-function addExpense(){
+async function addExpense(){
   const nameEl = document.getElementById('expName'); const valEl = document.getElementById('expVal');
   const catEl = document.getElementById('expCategory');
   const category = catEl.value || 'other';
@@ -1381,7 +1488,7 @@ function addExpense(){
   let name = nameEl.value.trim();
   if(!amount) return;
   if(category === 'other' && !name){
-    alert('اكتب تفاصيل المصروف — مطلوبة لتصنيف "أخرى"');
+    await showAlert('اكتب تفاصيل المصروف — مطلوبة لتصنيف "أخرى"');
     nameEl.focus();
     return;
   }
@@ -1391,13 +1498,13 @@ function addExpense(){
     const liabSel = document.getElementById('expLiabilitySelect');
     const liab = state.liabilities.find(l=>l.id===(liabSel && liabSel.value));
     if(!liab){
-      alert('اختر الالتزام المطلوب سداده');
+      await showAlert('اختر الالتزام المطلوب سداده');
       return;
     }
     const alreadyPaidHere = (existing && existing.category==='liability_payment' && existing.liabilityId===liab.id) ? Number(existing.amount||0) : 0;
     const available = Number(liab.value||0) + alreadyPaidHere;
     if(amount > available + 0.001){
-      if(!confirm(`المبلغ (${fmt(amount)}) أكبر من المتبقي على "${liab.name}" (${fmt(available)}). هل تريد المتابعة وتصفير الالتزام؟`)) return;
+      if(!(await showConfirm(`المبلغ (${fmt(amount)}) أكبر من المتبقي على "${liab.name}" (${fmt(available)}). هل تريد المتابعة وتصفير الالتزام؟`))) return;
     }
     if(existing && existing.category === 'liability_payment' && existing.liabilityId){
       const oldLiab = state.liabilities.find(l=>l.id===existing.liabilityId);
@@ -1437,7 +1544,7 @@ function addExpense(){
   saveState(); render();
   if(wasEditing) showToast('تم تحديث المصروف');
 }
-function bulkAddExpenses(){
+async function bulkAddExpenses(){
   const ta = document.getElementById('bulkImportText');
   const lines = ta.value.split('\n').map(l=>l.trim()).filter(Boolean);
   if(!lines.length) return;
@@ -1476,7 +1583,7 @@ function bulkAddExpenses(){
   let msg = `تم إضافة ${added} بند جديد إلى ${monthLabel(viewMonth)}`;
   if(merged) msg += `، ودمج ${merged} بند مع تصنيف موجود بالفعل`;
   if(skipped.length){
-    alert(msg + `\nتعذّر التعرف على: ${skipped.join('، ')}`);
+    await showAlert(msg + `\nتعذّر التعرف على: ${skipped.join('، ')}`);
   } else {
     showToast(msg);
   }
@@ -1542,14 +1649,14 @@ async function addGold(){
   }
   finish();
 }
-function removeItem(key,id){
+async function removeItem(key,id){
   if(key === 'expenses'){
     const exp = state.expenses.find(e=>e.id===id);
     if(exp && exp.category === 'liability_payment' && exp.liabilityId){
       const liab = state.liabilities.find(l=>l.id===exp.liabilityId);
       if(liab){
         liab.value = Number(liab.value||0) + Number(exp.amount||0);
-        if(!confirm(`حذف سداد "${liab.name}" سيعيد ${fmt(exp.amount)} إلى الالتزام (سيصبح ${fmt(liab.value)}). متابعة؟`)){
+        if(!(await showConfirm(`حذف سداد "${liab.name}" سيعيد ${fmt(exp.amount)} إلى الالتزام (سيصبح ${fmt(liab.value)}). متابعة؟`))){
           liab.value -= Number(exp.amount||0);
           return;
         }
