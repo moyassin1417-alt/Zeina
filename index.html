@@ -306,6 +306,26 @@ details.expander[open] summary{margin-bottom:4px}
     </div>
   </details>
 
+  <details class="expander" style="margin-top:10px" id="searchDetails">
+    <summary>🔎 البحث في كل المصاريف (كل الأشهر)</summary>
+    <div style="margin-top:8px">
+      <div class="formrow">
+        <input id="searchText" placeholder="ابحث بالاسم أو التفاصيل..." oninput="renderSearchResults()">
+        <select id="searchCategory" onchange="renderSearchResults()"></select>
+      </div>
+      <div class="formrow">
+        <select id="searchUser" onchange="renderSearchResults()">
+          <option value="">كل الأفراد</option>
+          <option value="بابا">بابا</option>
+          <option value="ماما">ماما</option>
+        </select>
+        <button class="add" style="flex:1; background:var(--sub)" onclick="clearSearch()">مسح البحث</button>
+      </div>
+      <div class="sub" id="searchSummary" style="margin:8px 0"></div>
+      <div id="searchResults"></div>
+    </div>
+  </details>
+
   <h2 style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px">مصاريف الشهر <span class="tot" id="expTotal"></span></h2>
   <div id="expPreview"></div>
   <details id="expDetails" class="expander">
@@ -561,6 +581,79 @@ function renderRecurring(){
   } else {
     banner.style.display = 'none';
   }
+}
+function populateSearchCategorySelect(){
+  const sel = document.getElementById('searchCategory');
+  if(!sel || sel.options.length) return;
+  sel.innerHTML = '<option value="">كل التصنيفات</option>' + CATS.map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
+}
+function clearSearch(){
+  document.getElementById('searchText').value = '';
+  document.getElementById('searchCategory').value = '';
+  document.getElementById('searchUser').value = '';
+  renderSearchResults();
+}
+function renderSearchResults(){
+  const textEl = document.getElementById('searchText');
+  const catEl = document.getElementById('searchCategory');
+  const userEl = document.getElementById('searchUser');
+  if(!textEl || !catEl || !userEl) return;
+  const q = textEl.value.trim().toLowerCase();
+  const cat = catEl.value;
+  const user = userEl.value;
+  const resultsEl = document.getElementById('searchResults');
+  const summaryEl = document.getElementById('searchSummary');
+  if(!q && !cat && !user){
+    resultsEl.innerHTML = '';
+    summaryEl.textContent = 'اكتب كلمة، أو اختر تصنيف/فرد، للبحث في مصاريف كل الأشهر';
+    return;
+  }
+  const matches = state.expenses.filter(e=>{
+    if(cat && e.category !== cat) return false;
+    if(user && e.user !== user) return false;
+    if(q){
+      const c = catInfo(e.category);
+      const hay = ((e.name||'') + ' ' + c.label).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  const total = matches.reduce((s,e)=>s+Number(e.amount||0),0);
+  summaryEl.textContent = matches.length
+    ? `${matches.length} نتيجة — الإجمالي ${fmt(total)}`
+    : 'لا توجد نتائج مطابقة';
+  resultsEl.innerHTML = matches.slice(0,200).map(e=>{
+    const c = catInfo(e.category);
+    return `
+    <div class="row">
+      <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(e.name)}</div><div class="note"><span class="userdot" style="background:${userColor(e.user)}"></span>${c.label} · ${escapeHtml(e.user||'')} · ${monthLabel(expenseMonth(e))} · ${e.date}</div></div>
+      <div class="amt">${fmt(e.amount)}</div>
+      <button class="edit" onclick="jumpToExpense('${e.id}')" title="اذهب لهذا المصروف">↗</button>
+    </div>`;
+  }).join('');
+}
+function jumpToExpense(id){
+  const e = state.expenses.find(x=>x.id===id);
+  if(!e) return;
+  const m = expenseMonth(e);
+  if(m && m !== viewMonth){
+    viewMonth = m;
+    localStorage.setItem('zainah_view_month', viewMonth);
+  }
+  showTab('home');
+  render();
+  setTimeout(()=>{
+    const expDetails = document.getElementById('expDetails');
+    if(expDetails) expDetails.open = true;
+    const rowBtn = document.querySelector(`button[onclick="startEditExpense('${id}')"]`);
+    if(rowBtn){
+      const row = rowBtn.closest('.row');
+      row.scrollIntoView({behavior:'smooth', block:'center'});
+      row.style.outline = '2px solid var(--accent)';
+      row.style.borderRadius = '8px';
+      setTimeout(()=>{ row.style.outline=''; }, 1800);
+    }
+  }, 150);
 }
 function onCategoryChange(){
   const cat = document.getElementById('expCategory').value;
@@ -1069,6 +1162,7 @@ function render(){
   renderReport(monthExp, expTotal);
   renderYearReport();
   renderRecurring();
+  renderSearchResults();
 }
 function expenseRowHtml(e){
   const c = catInfo(e.category);
@@ -1477,6 +1571,7 @@ function setBudget(){
 showTab('home');
 populateCategorySelect();
 populateRecurringCategorySelect();
+populateSearchCategorySelect();
 onCategoryChange();
 ['expDetails','reportDetails','yearDetails'].forEach(id=>{
   const d = document.getElementById(id);
