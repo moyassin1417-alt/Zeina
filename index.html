@@ -15,6 +15,7 @@
     --bg:#16150f; --card:#211f19; --ink:#f0ebe0; --sub:#a89f8c;
     --line:#38352b; --accent:#d4ad70; --accent2:#6fc0a3; --danger:#e88068; --warn:#e0a83f;
   }
+  .notice{background:#3d341a; border-color:#5c4d24; color:#e8d9a8}
 }
 *{box-sizing:border-box}
 body{
@@ -140,6 +141,9 @@ button.add:active{opacity:.8}
 .filepick input{display:none}
 .subtot{font-size:.8rem; color:var(--sub); margin-top:8px}
 .notice{background:#fff6e0; border:1px solid #e8d9a8; color:#6b5a1f; border-radius:10px; padding:10px 12px; font-size:.8rem; margin-bottom:12px}
+.notice.noticeRow{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+.notice.noticeRow .btns{display:flex; gap:6px; flex-shrink:0}
+.notice.noticeRow .btns button{padding:6px 12px; font-size:.78rem}
 .syncbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; font-size:.8rem; color:var(--sub)}
 .syncbar button{background:none; border:1px solid var(--line); border-radius:8px; padding:5px 10px; color:var(--ink); font-size:.78rem; cursor:pointer}
 .syncstatus{display:flex; align-items:center; gap:6px}
@@ -284,6 +288,14 @@ details.expander[open] summary{margin-bottom:4px}
 
 <div class="notice" id="noticeBar">هذه نسخة محلية: كل التعديلات تُحفظ تلقائيًا في هذا الجهاز، وتتزامن مع باقي الأسرة فقط بعد تفعيل المزامنة أعلاه.</div>
 
+<div class="notice noticeRow" id="backupReminderBar" style="display:none">
+  <span id="backupReminderText"></span>
+  <div class="btns">
+    <button class="add" onclick="exportBackup()">نزّل الآن</button>
+    <button class="add" style="background:var(--sub)" onclick="snoozeBackupReminder()">لاحقًا</button>
+  </div>
+</div>
+
 <div class="section tabview" data-tab="home">
   <div class="monthnav">
     <button class="navbtn" onclick="changeMonth(-1)" title="الشهر السابق" style="width:auto; padding:0 10px; font-size:.8rem">السابق</button>
@@ -365,6 +377,7 @@ details.expander[open] summary{margin-bottom:4px}
   </details>
 
   <h2 style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px">مصاريف الشهر <span class="tot" id="expTotal"></span></h2>
+  <div class="sub" id="monthCompareText" style="margin-top:-10px; margin-bottom:10px"></div>
   <div id="expPreview"></div>
   <details id="expDetails" class="expander">
     <summary>عرض كل مصاريف الشهر (<span id="expCount">0</span>)</summary>
@@ -546,10 +559,16 @@ function toggleRecurringActive(id){
   r.active = !r.active;
   saveState(); render();
 }
-async function removeRecurring(id){
-  if(!(await showConfirm('حذف هذا المصروف الثابت؟ (المصاريف اللي اتضافت به قبل كده مش هتتأثر)', {danger:true}))) return;
-  state.recurring = state.recurring.filter(x=>x.id!==id);
+function removeRecurring(id){
+  const idx = state.recurring.findIndex(x=>x.id===id);
+  if(idx === -1) return;
+  const item = state.recurring[idx];
+  state.recurring.splice(idx,1);
   saveState(); render();
+  showUndoToast('تم حذف المصروف الثابت', () => {
+    state.recurring.splice(idx,0,item);
+    saveState(); render();
+  });
 }
 function isRecurringAppliedThisMonth(id){
   return state.expenses.some(e=>e.recurringId===id && expenseMonth(e)===viewMonth);
@@ -733,6 +752,12 @@ function monthLabel(ym){
   return AR_MONTHS[m-1] + ' ' + y;
 }
 function expenseMonth(e){ return e.month || (e.date||'').slice(0,7); }
+function prevMonthOf(ym){
+  let [y,m] = ym.split('-').map(Number);
+  m -= 1;
+  if(m<1){ m=12; y--; }
+  return y+'-'+String(m).padStart(2,'0');
+}
 
 let viewMonth = localStorage.getItem('zainah_view_month') || new Date().toISOString().slice(0,7);
 function changeMonth(delta){
@@ -796,10 +821,28 @@ let toastTimer = null;
 function showToast(msg){
   const el = document.getElementById('toastEl');
   if(!el){ return; }
+  window._pendingUndo = null;
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>{ el.classList.remove('show'); }, 3200);
+}
+function showUndoToast(msg, onUndo){
+  const el = document.getElementById('toastEl');
+  if(!el){ return; }
+  el.innerHTML = `<span>${escapeHtml(msg)}</span> <button onclick="triggerUndo()" style="margin-inline-start:10px; background:none; border:none; color:inherit; font-weight:700; text-decoration:underline; cursor:pointer; font-size:.85rem; padding:0">تراجع</button>`;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  window._pendingUndo = onUndo;
+  toastTimer = setTimeout(()=>{ el.classList.remove('show'); window._pendingUndo = null; }, 5000);
+}
+function triggerUndo(){
+  const fn = window._pendingUndo;
+  window._pendingUndo = null;
+  const el = document.getElementById('toastEl');
+  if(el) el.classList.remove('show');
+  clearTimeout(toastTimer);
+  if(fn) fn();
 }
 
 function closeModal(){
@@ -1074,7 +1117,37 @@ function exportBackup(){
   const dateStr = new Date().toISOString().slice(0,10);
   const json = JSON.stringify(state, null, 2);
   triggerDownload(json, `zeina-backup-${dateStr}.json`, 'application/json');
+  localStorage.setItem('zainah_last_backup_date', dateStr);
+  localStorage.removeItem('zainah_backup_snooze_until');
+  const bar = document.getElementById('backupReminderBar');
+  if(bar) bar.style.display = 'none';
   showToast('تم تنزيل النسخة الاحتياطية');
+}
+function checkBackupReminder(){
+  const bar = document.getElementById('backupReminderBar');
+  if(!bar) return;
+  const hasData = (state.assets.length + state.liabilities.length + state.expenses.length + state.gold.length) > 0;
+  if(!hasData){ bar.style.display = 'none'; return; }
+  const today = new Date().toISOString().slice(0,10);
+  const snoozeUntil = localStorage.getItem('zainah_backup_snooze_until');
+  if(snoozeUntil && today < snoozeUntil){ bar.style.display = 'none'; return; }
+  const lastBackup = localStorage.getItem('zainah_last_backup_date');
+  let daysSince = Infinity;
+  if(lastBackup){
+    daysSince = Math.floor((new Date(today) - new Date(lastBackup)) / 86400000);
+  }
+  if(daysSince < 14){ bar.style.display = 'none'; return; }
+  document.getElementById('backupReminderText').textContent = lastBackup
+    ? `آخر نسخة احتياطية كانت من ${daysSince} يوم — حابب تاخد نسخة جديدة؟`
+    : 'لسه ما أخدتش نسخة احتياطية من بياناتك — خدها دلوقتي علشان تطمن';
+  bar.style.display = 'flex';
+}
+function snoozeBackupReminder(){
+  const d = new Date();
+  d.setDate(d.getDate() + 3);
+  localStorage.setItem('zainah_backup_snooze_until', d.toISOString().slice(0,10));
+  const bar = document.getElementById('backupReminderBar');
+  if(bar) bar.style.display = 'none';
 }
 function importBackupFile(event){
   const file = event.target.files && event.target.files[0];
@@ -1236,6 +1309,23 @@ function render(){
   document.getElementById('expTotal').textContent = fmt(expTotal);
   document.getElementById('topSpent').textContent = fmt(expTotal);
 
+  const compareEl = document.getElementById('monthCompareText');
+  const prevM = prevMonthOf(viewMonth);
+  const prevTotal = monthTotal(prevM);
+  if(prevTotal > 0){
+    const diffPct = Math.round(((expTotal - prevTotal) / prevTotal) * 100);
+    if(diffPct === 0){
+      compareEl.textContent = `= نفس مصاريف ${monthLabel(prevM)} تقريبًا`;
+      compareEl.style.color = '';
+    } else if(diffPct > 0){
+      compareEl.innerHTML = `<span style="color:var(--danger); font-weight:700">▲ ${diffPct}%</span> أكتر من ${monthLabel(prevM)}`;
+    } else {
+      compareEl.innerHTML = `<span style="color:var(--accent2); font-weight:700">▼ ${Math.abs(diffPct)}%</span> أقل من ${monthLabel(prevM)}`;
+    }
+  } else {
+    compareEl.textContent = expTotal > 0 ? `لا توجد بيانات لشهر ${monthLabel(prevM)} للمقارنة` : '';
+  }
+
   const monthBudget = state.budgets[viewMonth] || 0;
   const remaining = monthBudget - expTotal;
   document.getElementById('remaining').textContent = fmt(remaining);
@@ -1270,6 +1360,7 @@ function render(){
   renderYearReport();
   renderRecurring();
   renderSearchResults();
+  checkBackupReminder();
 }
 function expenseRowHtml(e){
   const c = catInfo(e.category);
@@ -1649,23 +1740,30 @@ async function addGold(){
   }
   finish();
 }
-async function removeItem(key,id){
-  if(key === 'expenses'){
-    const exp = state.expenses.find(e=>e.id===id);
-    if(exp && exp.category === 'liability_payment' && exp.liabilityId){
-      const liab = state.liabilities.find(l=>l.id===exp.liabilityId);
-      if(liab){
-        liab.value = Number(liab.value||0) + Number(exp.amount||0);
-        if(!(await showConfirm(`حذف سداد "${liab.name}" سيعيد ${fmt(exp.amount)} إلى الالتزام (سيصبح ${fmt(liab.value)}). متابعة؟`))){
-          liab.value -= Number(exp.amount||0);
-          return;
-        }
-      }
+const DELETE_UNDO_LABELS = { assets:'الأصل', liabilities:'الالتزام', expenses:'المصروف', gold:'القطعة' };
+function removeItem(key,id){
+  const idx = state[key].findIndex(i=>i.id===id);
+  if(idx === -1) return;
+  const item = state[key][idx];
+  let liabUndo = null;
+  if(key === 'expenses' && item.category === 'liability_payment' && item.liabilityId){
+    const liab = state.liabilities.find(l=>l.id===item.liabilityId);
+    if(liab){
+      liab.value = Number(liab.value||0) + Number(item.amount||0);
+      liabUndo = { liabilityId: item.liabilityId, amount: Number(item.amount||0) };
     }
   }
   if(key === 'expenses' && editingExpenseId === id) cancelEditExpense();
-  state[key] = state[key].filter(i=>i.id!==id);
+  state[key].splice(idx,1);
   saveState(); render();
+  showUndoToast(`تم حذف ${DELETE_UNDO_LABELS[key]||'البند'}`, () => {
+    state[key].splice(idx,0,item);
+    if(liabUndo){
+      const liab = state.liabilities.find(l=>l.id===liabUndo.liabilityId);
+      if(liab) liab.value = Math.max(0, Number(liab.value||0) - liabUndo.amount);
+    }
+    saveState(); render();
+  });
 }
 function setBudget(){
   const v = Number(document.getElementById('budgetVal').value);
