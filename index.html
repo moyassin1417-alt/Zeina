@@ -104,6 +104,10 @@ button.add:active{opacity:.8}
 .repHead .rpct{color:var(--sub); font-size:.75rem; margin-inline-start:4px}
 .repTrack{height:9px; border-radius:5px; background:var(--line); overflow:hidden}
 .repFill{height:100%; border-radius:5px}
+details.expander{margin-top:8px}
+details.expander summary{cursor:pointer; font-size:.85rem; color:var(--accent); font-weight:600; padding:6px 0; list-style:revert; user-select:none}
+details.expander summary::-webkit-details-marker{color:var(--accent)}
+details.expander[open] summary{margin-bottom:4px}
 </style>
 </head>
 <body>
@@ -163,12 +167,50 @@ button.add:active{opacity:.8}
 
 <div class="notice">هذه نسخة محلية: كل التعديلات تُحفظ تلقائيًا في هذا الجهاز، وتتزامن مع باقي الأسرة فقط بعد تفعيل المزامنة أعلاه.</div>
 
-<div class="cards">
-  <div class="card"><div class="label">إجمالي الأصول</div><div class="val" id="topAssets">—</div><div class="note" id="topAssetsGoldNote" style="font-size:11px; opacity:.7; margin-top:2px"></div></div>
-  <div class="card"><div class="label">إجمالي الالتزامات</div><div class="val" id="topLiab">—</div></div>
-  <div class="card"><div class="label">صافي الثروة</div><div class="val" id="netWorth">—</div></div>
-  <div class="card"><div class="label">الميزانية المتبقية هذا الشهر</div><div class="val" id="remaining">—</div></div>
-  <div class="card wide"><div class="label">إجمالي المصروف هذا الشهر</div><div class="val" id="topSpent">—</div></div>
+<div class="section">
+  <div class="monthnav">
+    <button class="navbtn" onclick="changeMonth(-1)" title="الشهر السابق" style="width:auto; padding:0 10px; font-size:.8rem">السابق</button>
+    <span class="monthlabel" id="monthLabel"></span>
+    <button class="navbtn" onclick="changeMonth(1)" title="الشهر التالي" style="width:auto; padding:0 10px; font-size:.8rem">التالي</button>
+  </div>
+  <h2>ميزانية الشهر</h2>
+  <div class="formrow">
+    <input id="budgetVal" placeholder="ميزانية هذا الشهر بالريال" type="number">
+    <button class="add" onclick="setBudget()">حفظ</button>
+  </div>
+  <div class="budgetbar" id="budgetBar"><div id="budgetFill" style="width:0%"></div></div>
+  <div class="sub" id="budgetText" style="margin-top:6px"></div>
+
+  <h2 style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px">إضافة مصروف</h2>
+  <div class="userpick" id="userPick"></div>
+  <div class="formrow">
+    <select id="expCategory" onchange="onCategoryChange()"></select>
+    <input id="expVal" placeholder="المبلغ" type="number">
+  </div>
+  <div class="formrow" id="liabPayRow" style="display:none">
+    <select id="expLiabilitySelect" style="flex:1" onchange="onLiabilitySelectChange()"></select>
+  </div>
+  <div class="formrow">
+    <input id="expName" placeholder="تفاصيل المصروف (اختياري)">
+    <button class="add" style="flex:1" onclick="addExpense()">إضافة</button>
+  </div>
+
+  <h2 style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px">مصاريف الشهر <span class="tot" id="expTotal"></span></h2>
+  <div id="expPreview"></div>
+  <details id="expDetails" class="expander">
+    <summary>عرض كل مصاريف الشهر (<span id="expCount">0</span>)</summary>
+    <div id="expList" style="margin-top:8px"></div>
+  </details>
+</div>
+
+<div class="section">
+  <h2>الالتزامات <span class="tot" id="liabTotal"></span></h2>
+  <div id="liabList"></div>
+  <div class="formrow">
+    <input id="liabName" placeholder="اسم الالتزام (قرض، تمويل...)">
+    <input id="liabVal" placeholder="القيمة" type="number">
+    <button class="add" onclick="addItem('liabilities')">إضافة</button>
+  </div>
 </div>
 
 <div class="section">
@@ -196,53 +238,23 @@ button.add:active{opacity:.8}
   </div>
 </div>
 
-<div class="section">
-  <h2>الالتزامات <span class="tot" id="liabTotal"></span></h2>
-  <div id="liabList"></div>
-  <div class="formrow">
-    <input id="liabName" placeholder="اسم الالتزام (قرض، تمويل...)">
-    <input id="liabVal" placeholder="القيمة" type="number">
-    <button class="add" onclick="addItem('liabilities')">إضافة</button>
-  </div>
+<div class="cards">
+  <div class="card"><div class="label">إجمالي الأصول</div><div class="val" id="topAssets">—</div><div class="note" id="topAssetsGoldNote" style="font-size:11px; opacity:.7; margin-top:2px"></div></div>
+  <div class="card"><div class="label">إجمالي الالتزامات</div><div class="val" id="topLiab">—</div></div>
+  <div class="card"><div class="label">صافي الثروة</div><div class="val" id="netWorth">—</div></div>
+  <div class="card"><div class="label">الميزانية المتبقية هذا الشهر</div><div class="val" id="remaining">—</div></div>
+  <div class="card wide"><div class="label">إجمالي المصروف هذا الشهر</div><div class="val" id="topSpent">—</div></div>
 </div>
 
 <div class="section">
-  <div class="monthnav">
-    <button class="navbtn" onclick="changeMonth(-1)" title="الشهر السابق" style="width:auto; padding:0 10px; font-size:.8rem">السابق</button>
-    <span class="monthlabel" id="monthLabel"></span>
-    <button class="navbtn" onclick="changeMonth(1)" title="الشهر التالي" style="width:auto; padding:0 10px; font-size:.8rem">التالي</button>
-  </div>
-  <h2>ميزانية الشهر</h2>
-  <div class="formrow">
-    <input id="budgetVal" placeholder="ميزانية هذا الشهر بالريال" type="number">
-    <button class="add" onclick="setBudget()">حفظ</button>
-  </div>
-  <div class="budgetbar" id="budgetBar"><div id="budgetFill" style="width:0%"></div></div>
-  <div class="sub" id="budgetText" style="margin-top:6px"></div>
-</div>
-
-<div class="section">
-  <h2>مصاريف الشهر <span class="tot" id="expTotal"></span></h2>
-  <div class="userpick" id="userPick"></div>
-  <div id="expList"></div>
-  <div class="formrow">
-    <select id="expCategory" onchange="onCategoryChange()"></select>
-    <input id="expVal" placeholder="المبلغ" type="number">
-  </div>
-  <div class="formrow" id="liabPayRow" style="display:none">
-    <select id="expLiabilitySelect" style="flex:1" onchange="onLiabilitySelectChange()"></select>
-  </div>
-  <div class="formrow">
-    <input id="expName" placeholder="تفاصيل المصروف (اختياري)">
-    <button class="add" style="flex:1" onclick="addExpense()">إضافة</button>
-  </div>
-</div>
-
-<div class="section">
-  <h2>📊 التقارير</h2>
+  <h2>📊 التقارير والملخص</h2>
 
   <div class="sub" style="margin-bottom:10px">توزيع مصاريف <span id="reportMonthLabel"></span> حسب التصنيف</div>
-  <div id="reportList"></div>
+  <div id="reportPreview"></div>
+  <details id="reportDetails" class="expander">
+    <summary>عرض كل التقارير</summary>
+    <div id="reportList" style="margin-top:8px"></div>
+  </details>
 
   <h2 style="margin-top:20px; border-top:1px solid var(--line); padding-top:14px">📅 ملخص السنة</h2>
   <div class="monthnav">
@@ -255,7 +267,11 @@ button.add:active{opacity:.8}
     <div class="card"><div class="label">أكثر تصنيف صرفت عليه</div><div class="val" id="yearTopCat" style="font-size:.95rem">—</div></div>
   </div>
   <div class="sub" style="margin-bottom:8px">مصاريف كل شهر</div>
-  <div id="yearMonthsList"></div>
+  <div id="yearMonthPreview"></div>
+  <details id="yearDetails" class="expander">
+    <summary>عرض باقي الأشهر</summary>
+    <div id="yearMonthsList" style="margin-top:8px"></div>
+  </details>
 </div>
 </div>
 
@@ -643,22 +659,29 @@ function render(){
   const avImg = window.userAvatarSrc ? `<img class="avatar-md" style="display:inline-block" src="${window.userAvatarSrc}">` : '';
   up.innerHTML = `${avImg} مسجَّل الدخول باسم: <span class="me">${escapeHtml(window.currentUser||'')}</span>`;
 
+  const monthExpSorted = monthExp.slice().reverse();
+  const previewEl = document.getElementById('expPreview');
   const el = document.getElementById('expList');
-  if(!monthExp.length){ el.innerHTML = '<div class="empty">لا توجد مصاريف في هذا الشهر بعد</div>'; }
-  else{
-    el.innerHTML = monthExp.slice().reverse().map(e=>{
-      const c = catInfo(e.category);
-      return `
-      <div class="row">
-        <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(e.name)}</div><div class="note">${c.label} · ${escapeHtml(e.user||'')} · ${e.date}</div></div>
-        <div class="amt">${fmt(e.amount)}</div>
-        <button class="del" onclick="removeItem('expenses','${e.id}')">✕</button>
-      </div>`;
-    }).join('');
+  document.getElementById('expCount').textContent = monthExp.length;
+  if(!monthExp.length){
+    previewEl.innerHTML = '<div class="empty">لا توجد مصاريف في هذا الشهر بعد</div>';
+    el.innerHTML = '';
+  } else {
+    previewEl.innerHTML = monthExpSorted.slice(0,3).map(expenseRowHtml).join('');
+    el.innerHTML = monthExpSorted.map(expenseRowHtml).join('');
   }
 
   renderReport(monthExp, expTotal);
   renderYearReport();
+}
+function expenseRowHtml(e){
+  const c = catInfo(e.category);
+  return `
+  <div class="row">
+    <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(e.name)}</div><div class="note">${c.label} · ${escapeHtml(e.user||'')} · ${e.date}</div></div>
+    <div class="amt">${fmt(e.amount)}</div>
+    <button class="del" onclick="removeItem('expenses','${e.id}')">✕</button>
+  </div>`;
 }
 function renderYearReport(){
   document.getElementById('yearLabel').textContent = String(reportYear);
@@ -681,10 +704,11 @@ function renderYearReport(){
   }
 
   const listEl = document.getElementById('yearMonthsList');
+  const previewEl = document.getElementById('yearMonthPreview');
   const months = Array.from({length:12}, (_,i)=>`${reportYear}-${String(i+1).padStart(2,'0')}`);
   const totals = months.map(m=>monthTotal(m));
   const maxTotal = Math.max(1, ...totals);
-  const rowsHtml = months.map((m,i)=>{
+  const monthRowHtml = (i)=>{
     const amt = totals[i];
     const pct = Math.round((amt/maxTotal)*100);
     return `
@@ -695,12 +719,22 @@ function renderYearReport(){
       </div>
       <div class="repTrack"><div class="repFill" style="width:${pct}%; background:var(--accent)"></div></div>
     </div>`;
-  }).join('');
-  listEl.innerHTML = yExp.length ? rowsHtml : '<div class="empty">لا توجد مصاريف مسجّلة في هذه السنة</div>';
+  };
+  listEl.innerHTML = yExp.length ? months.map((m,i)=>monthRowHtml(i)).join('') : '<div class="empty">لا توجد مصاريف مسجّلة في هذه السنة</div>';
+  if(!yExp.length){ previewEl.innerHTML = ''; }
+  else{
+    const topIdx = totals.indexOf(Math.max(...totals));
+    previewEl.innerHTML = monthRowHtml(topIdx);
+  }
 }
 function renderReport(monthExp, expTotal){
   const el = document.getElementById('reportList');
-  if(!monthExp.length){ el.innerHTML = '<div class="empty">لا توجد بيانات لعرضها لهذا الشهر</div>'; return; }
+  const previewEl = document.getElementById('reportPreview');
+  if(!monthExp.length){
+    el.innerHTML = '<div class="empty">لا توجد بيانات لعرضها لهذا الشهر</div>';
+    previewEl.innerHTML = '';
+    return;
+  }
   const byCat = {};
   monthExp.forEach(e=>{
     const k = e.category && CATS.some(c=>c.key===e.category) ? e.category : 'other';
@@ -710,7 +744,7 @@ function renderReport(monthExp, expTotal){
     .map(c=>({...c, amount: byCat[c.key]||0}))
     .filter(r=>r.amount>0)
     .sort((a,b)=>b.amount-a.amount);
-  el.innerHTML = rows.map(r=>{
+  const catRowHtml = r=>{
     const pct = expTotal ? Math.round((r.amount/expTotal)*100) : 0;
     return `
     <div class="repRow">
@@ -720,7 +754,9 @@ function renderReport(monthExp, expTotal){
       </div>
       <div class="repTrack"><div class="repFill" style="width:${pct}%; background:${r.color}"></div></div>
     </div>`;
-  }).join('');
+  };
+  el.innerHTML = rows.map(catRowHtml).join('');
+  previewEl.innerHTML = rows.slice(0,3).map(catRowHtml).join('');
 }
 function renderList(elId, key){
   const el = document.getElementById(elId);
@@ -879,6 +915,12 @@ function setBudget(){
 
 populateCategorySelect();
 onCategoryChange();
+['expDetails','reportDetails','yearDetails'].forEach(id=>{
+  const d = document.getElementById(id);
+  const previewId = id==='expDetails' ? 'expPreview' : id==='reportDetails' ? 'reportPreview' : 'yearMonthPreview';
+  const p = document.getElementById(previewId);
+  if(d && p) d.addEventListener('toggle', ()=>{ p.style.display = d.open ? 'none' : ''; });
+});
 if(syncKey && syncBin){ syncPull(); setInterval(()=>syncPull(), 20000);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) syncPull(); });
 }
