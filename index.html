@@ -201,6 +201,7 @@ details.expander[open] summary{margin-bottom:4px}
       <div class="sub" style="margin-bottom:6px">سطر لكل بند: اسم التصنيف ثم المبلغ، مثال:<br>أقساط 4337.68<br>بقالة 1060.15</div>
       <textarea id="bulkImportText" rows="5" style="width:100%; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px; font-size:.85rem; color:var(--ink); font-family:inherit; resize:vertical"></textarea>
       <button class="add" style="width:100%; margin-top:8px" onclick="bulkAddExpenses()">استيراد إلى شهر <span id="bulkMonthLabel"></span></button>
+      <button class="add" style="width:100%; margin-top:8px; background:var(--accent2)" onclick="mergeDuplicateExpenses()">🔗 دمج المصاريف المكررة (نفس التصنيف) لهذا الشهر</button>
     </div>
   </details>
 
@@ -864,7 +865,7 @@ function bulkAddExpenses(){
   const ta = document.getElementById('bulkImportText');
   const lines = ta.value.split('\n').map(l=>l.trim()).filter(Boolean);
   if(!lines.length) return;
-  let added = 0; const skipped = [];
+  let added = 0, merged = 0; const skipped = [];
   lines.forEach(line=>{
     const m = line.match(/^(.*?)[\s:،\-]+([\d,]+(?:\.\d+)?)\s*(?:ر\.?\s?س\.?)?$/);
     if(!m){ skipped.push(line); return; }
@@ -876,18 +877,53 @@ function bulkAddExpenses(){
       || CATS.find(c=>c.label.includes(label));
     const category = cat ? cat.key : 'other';
     const name = cat ? cat.label : label;
-    state.expenses.push({
-      id:uid(), name, amount,
-      category,
-      user: window.currentUser||'أنا',
-      date:new Date().toISOString().slice(0,10),
-      month: viewMonth
-    });
-    added++;
+    // avoid duplicate category rows: merge with an existing entry of the same category+name in this month
+    const existing = category !== 'liability_payment'
+      ? state.expenses.find(e=>e.category===category && expenseMonth(e)===viewMonth && e.name===name)
+      : null;
+    if(existing){
+      existing.amount = Number(existing.amount||0) + amount;
+      merged++;
+    } else {
+      state.expenses.push({
+        id:uid(), name, amount,
+        category,
+        user: window.currentUser||'أنا',
+        date:new Date().toISOString().slice(0,10),
+        month: viewMonth
+      });
+      added++;
+    }
   });
   ta.value = '';
   saveState(); render();
-  alert(`تم إضافة ${added} بند إلى ${monthLabel(viewMonth)}` + (skipped.length ? `\nتعذّر التعرف على: ${skipped.join('، ')}` : ''));
+  let msg = `تم إضافة ${added} بند جديد إلى ${monthLabel(viewMonth)}`;
+  if(merged) msg += `، ودمج ${merged} بند مع تصنيف موجود بالفعل`;
+  if(skipped.length) msg += `\nتعذّر التعرف على: ${skipped.join('، ')}`;
+  alert(msg);
+}
+function mergeDuplicateExpenses(){
+  const monthExp = state.expenses.filter(e=>expenseMonth(e)===viewMonth);
+  const byKey = {};
+  monthExp.forEach(e=>{
+    if(e.category === 'liability_payment') return; // each payment is its own record, never merge
+    const k = (e.category||'other') + '|' + e.name;
+    (byKey[k] = byKey[k]||[]).push(e);
+  });
+  let mergedGroups = 0, removedCount = 0;
+  Object.values(byKey).forEach(group=>{
+    if(group.length < 2) return;
+    mergedGroups++;
+    const total = group.reduce((s,e)=>s+Number(e.amount||0),0);
+    group[0].amount = total;
+    for(let i=1;i<group.length;i++){
+      const idx = state.expenses.findIndex(x=>x.id===group[i].id);
+      if(idx>-1){ state.expenses.splice(idx,1); removedCount++; }
+    }
+  });
+  if(!mergedGroups){ alert('لا توجد بنود مكررة لنفس التصنيف في هذا الشهر'); return; }
+  saveState(); render();
+  alert(`تم دمج ${mergedGroups} تصنيف مكرر (حُذف ${removedCount} بند بعد جمع مبلغه مع الأصل)`);
 }
 function compressImage(file, maxDim, quality){
   return new Promise((resolve)=>{
