@@ -109,6 +109,25 @@ body{
 }
 .imgViewerOverlay.show{opacity:1; pointer-events:auto}
 .imgViewerOverlay img{max-width:100%; max-height:100%; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.assistantOverlay{
+  position:fixed; inset:0; z-index:320; display:flex; flex-direction:column;
+  background:var(--bg); opacity:0; pointer-events:none; transition:opacity .18s;
+}
+.assistantOverlay.show{opacity:1; pointer-events:auto}
+.assistantHeader{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:calc(12px + env(safe-area-inset-top)) 16px 12px; border-bottom:1px solid var(--line); background:var(--card);
+}
+.assistantSettings{padding:14px 16px; border-bottom:1px solid var(--line); background:var(--card); display:none}
+.assistantSettings.open{display:block}
+.assistantMsgs{flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px}
+.assistantBubble{max-width:82%; padding:10px 13px; border-radius:14px; font-size:.9rem; line-height:1.6; white-space:pre-wrap}
+.assistantBubble.user{align-self:flex-end; background:var(--accent); color:#fff; border-bottom-left-radius:4px}
+.assistantBubble.bot{align-self:flex-start; background:var(--card); border:1px solid var(--line); border-bottom-right-radius:4px}
+.assistantBubble.sys{align-self:center; background:transparent; color:var(--sub); font-size:.78rem; text-align:center; max-width:95%}
+.assistantBubble.typing{align-self:flex-start; color:var(--sub); background:var(--card); border:1px solid var(--line)}
+.assistantInputRow{display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--card)}
+.assistantInputRow input{flex:1}
 h1{font-size:1.3rem; margin:0 0 2px}
 .sub{color:var(--sub); font-size:.85rem; margin-bottom:18px}
 .cards{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px}
@@ -259,6 +278,29 @@ details.expander[open] summary{margin-bottom:4px}
   <img id="imageViewerImg" src="" alt="">
 </div>
 
+<div id="assistantOverlay" class="assistantOverlay">
+  <div class="assistantHeader">
+    <div style="font-weight:700">🤖 مساعد بيت زينة</div>
+    <div style="display:flex; gap:6px">
+      <button class="tb-chip" onclick="toggleAssistantSettings()" title="إعدادات المساعد">⚙️</button>
+      <button class="tb-chip" onclick="closeAssistant()" title="إغلاق">✕</button>
+    </div>
+  </div>
+  <div class="assistantSettings" id="assistantSettings">
+    <div class="sub" style="margin-bottom:6px">المساعد محتاج سيرفر وسيط بسيط (Worker) شغال مرة واحدة عشان يحمي مفتاح Claude API — لو مش متأكد اسأل اللي جهّز التطبيق. بعد كده الصق البيانات هنا:</div>
+    <label style="font-size:.78rem; color:var(--sub); display:block; margin-bottom:3px">رابط المساعد (Worker URL)</label>
+    <input id="assistantUrlInput" placeholder="https://xxx.workers.dev" style="width:100%; margin-bottom:8px; box-sizing:border-box">
+    <label style="font-size:.78rem; color:var(--sub); display:block; margin-bottom:3px">الكود السري</label>
+    <input id="assistantTokenInput" placeholder="APP_SHARED_SECRET" style="width:100%; margin-bottom:10px; box-sizing:border-box">
+    <button class="add" style="width:100%" onclick="saveAssistantSettings()">حفظ الإعدادات</button>
+  </div>
+  <div class="assistantMsgs" id="assistantMsgs"></div>
+  <div class="assistantInputRow">
+    <input id="assistantInput" placeholder="اسأل أو اطلب إضافة..." onkeydown="if(event.key==='Enter'){ event.preventDefault(); sendAssistantMessage(); }">
+    <button class="add" onclick="sendAssistantMessage()">إرسال</button>
+  </div>
+</div>
+
 <div id="modalOverlay" class="modalOverlay" onclick="modalBackdropClick(event)">
   <div class="modalBox">
     <div class="modalIcon" id="modalIcon" style="display:none"></div>
@@ -276,6 +318,7 @@ details.expander[open] summary{margin-bottom:4px}
 <div class="topbar2">
   <div class="tb-title">🏠 بيت زينة</div>
   <div class="tb-right">
+    <button class="tb-chip" onclick="openAssistant()" title="المساعد الذكي">🤖</button>
     <button class="tb-chip" onclick="logout()" title="تسجيل خروج"><img id="topAvatar" class="avatar-sm" alt=""><span id="loggedAs"></span> 🔓</button>
     <button class="tb-chip tb-sync" onclick="toggleSyncPanel()" title="المزامنة"><span class="dot" id="syncDot"></span>⚙️</button>
   </div>
@@ -1797,6 +1840,235 @@ function renderZakat(){
     dueEl.textContent = fmt(due);
   } else {
     dueEl.textContent = 'لم يبلغ النصاب بعد';
+  }
+}
+
+// ============================= المساعد الذكي =============================
+// يتصل بسيرفر وسيط (Cloudflare Worker) بيحمي مفتاح Claude API ويرجّع رد نصي
+// و/أو أوامر إضافة (tool_calls) ننفذها محليًا. المساعد "يضيف" بيانات بس —
+// مفيش عنده أي قدرة على التعديل أو الحذف أو السحب.
+let assistantHistory = []; // {role:'user'|'assistant', content:string} — لسه الجلسة دي بس، مش متخزنة
+let assistantBusy = false;
+
+function getAssistantConfig(){
+  return {
+    url: (localStorage.getItem('zainah_assistant_url') || '').trim(),
+    token: (localStorage.getItem('zainah_assistant_token') || '').trim()
+  };
+}
+
+function openAssistant(){
+  const cfg = getAssistantConfig();
+  document.getElementById('assistantUrlInput').value = cfg.url;
+  document.getElementById('assistantTokenInput').value = cfg.token;
+  const msgs = document.getElementById('assistantMsgs');
+  if(!msgs.dataset.inited){
+    msgs.dataset.inited = '1';
+    appendAssistantBubble('sys', 'اسألني عن أي حاجة في بيانات الأسرة، أو اطلب مني أضيف مصروف/التزام/أصل/ذهب/هدف ادخار جديد.');
+    if(!cfg.url || !cfg.token){
+      appendAssistantBubble('sys', 'لسه محتاج تظبط إعدادات المساعد (⚙️) قبل ما تقدر تستخدمه.');
+    }
+  }
+  document.getElementById('assistantOverlay').classList.add('show');
+  setTimeout(()=>{ document.getElementById('assistantInput').focus(); }, 100);
+}
+function closeAssistant(){
+  document.getElementById('assistantOverlay').classList.remove('show');
+  document.getElementById('assistantSettings').classList.remove('open');
+}
+function toggleAssistantSettings(){
+  document.getElementById('assistantSettings').classList.toggle('open');
+}
+function saveAssistantSettings(){
+  const url = document.getElementById('assistantUrlInput').value.trim();
+  const token = document.getElementById('assistantTokenInput').value.trim();
+  localStorage.setItem('zainah_assistant_url', url);
+  localStorage.setItem('zainah_assistant_token', token);
+  document.getElementById('assistantSettings').classList.remove('open');
+  showToast('تم حفظ إعدادات المساعد');
+}
+
+function appendAssistantBubble(role, text){
+  const msgs = document.getElementById('assistantMsgs');
+  const div = document.createElement('div');
+  div.className = 'assistantBubble ' + role;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function buildAssistantStateSummary(){
+  const goldValueTotal = state.gold.reduce((s,g)=>s+goldItemValue(g),0);
+  const assetsTotal = state.assets.reduce((s,a)=>s+Number(a.value||0),0) + goldValueTotal;
+  const liabTotal = state.liabilities.reduce((s,l)=>s+Number(l.value||0),0);
+  const curMonth = new Date().toISOString().slice(0,7);
+  const monthExpenses = state.expenses.filter(e=>e.month===curMonth);
+  const byCat = {};
+  monthExpenses.forEach(e=>{ byCat[e.category] = (byCat[e.category]||0) + Number(e.amount||0); });
+  const spent = monthExpenses.reduce((s,e)=>s+Number(e.amount||0),0);
+  const budget = Number(state.budgets[curMonth] || 0);
+  return {
+    today: new Date().toISOString().slice(0,10),
+    currentMonth: curMonth,
+    budgetThisMonth: budget,
+    spentThisMonth: spent,
+    remainingThisMonth: budget - spent,
+    expensesThisMonthByCategory: byCat,
+    expensesThisMonthCount: monthExpenses.length,
+    recentExpenses: monthExpenses.slice(-25).map(e=>({name:e.name, amount:e.amount, category:e.category, user:e.user, date:e.date})),
+    liabilities: state.liabilities.map(l=>({name:l.name, value:l.value})),
+    liabilitiesTotal: liabTotal,
+    assets: state.assets.map(a=>({name:a.name, value:a.value})),
+    gold: state.gold.map(g=>({name:g.name, weight_grams:g.weight, value:goldItemValue(g)})),
+    goldPricePerGram21k: goldPricePerGram21k,
+    assetsTotal: assetsTotal,
+    netWorth: assetsTotal - liabTotal,
+    goals: state.goals.map(g=>({name:g.name, target:g.target, saved:g.saved})),
+    recurring: state.recurring.filter(r=>r.active).map(r=>({name:r.name, amount:r.amount, category:r.category}))
+  };
+}
+
+async function sendAssistantMessage(){
+  if(assistantBusy) return;
+  const input = document.getElementById('assistantInput');
+  const message = input.value.trim();
+  if(!message) return;
+  const cfg = getAssistantConfig();
+  if(!cfg.url || !cfg.token){
+    appendAssistantBubble('sys', 'ظبط إعدادات المساعد (⚙️) الأول — محتاج رابط المساعد والكود السري.');
+    return;
+  }
+  input.value = '';
+  appendAssistantBubble('user', message);
+  const typingEl = appendAssistantBubble('typing', 'بيفكر...');
+  assistantBusy = true;
+  try{
+    const res = await fetch(cfg.url, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-App-Token': cfg.token },
+      body: JSON.stringify({
+        message,
+        history: assistantHistory,
+        state: buildAssistantStateSummary()
+      })
+    });
+    typingEl.remove();
+    if(!res.ok){
+      if(res.status === 401){
+        appendAssistantBubble('sys', 'الكود السري غلط أو مش متطابق مع إعدادات الـ Worker — راجع الإعدادات ⚙️');
+      } else {
+        appendAssistantBubble('sys', 'تعذر الوصول للمساعد حاليًا (' + res.status + '). جرّب تاني بعد شوية.');
+      }
+      assistantBusy = false;
+      return;
+    }
+    const data = await res.json();
+    if(data.error){
+      appendAssistantBubble('sys', 'حصل خطأ: ' + (data.message || data.error));
+      assistantBusy = false;
+      return;
+    }
+    assistantHistory.push({role:'user', content: message});
+    if(data.text){
+      appendAssistantBubble('bot', data.text);
+      assistantHistory.push({role:'assistant', content: data.text});
+    }
+    if(Array.isArray(data.tool_calls)){
+      for(const call of data.tool_calls){
+        const result = applyAssistantTool(call);
+        appendAssistantBubble('sys', result.message);
+      }
+      if(data.tool_calls.length) render();
+    }
+  } catch(e){
+    typingEl.remove();
+    appendAssistantBubble('sys', 'تعذر الاتصال بالمساعد — تأكد من اتصال الإنترنت وإعدادات المساعد ⚙️');
+  }
+  assistantBusy = false;
+}
+
+function applyAssistantTool(call){
+  const input = call.input || {};
+  try{
+    switch(call.name){
+      case 'add_expense': {
+        const amount = Number(input.amount);
+        if(!amount || amount <= 0) return {ok:false, message:'❌ مبلغ المصروف غير صحيح'};
+        const category = CATS.some(c=>c.key===input.category && c.key!=='liability_payment' && c.key!=='savings') ? input.category : 'other';
+        const name = (input.name || '').toString().trim() || catInfo(category).label;
+        state.expenses.push({
+          id:uid(), name, amount, category,
+          user: (input.user==='بابا'||input.user==='ماما') ? input.user : (window.currentUser||'أنا'),
+          date:new Date().toISOString().slice(0,10),
+          month:new Date().toISOString().slice(0,7)
+        });
+        saveState();
+        return {ok:true, message:`✅ اتضاف مصروف "${name}" بمبلغ ${fmt(amount)} (${catInfo(category).label})`};
+      }
+      case 'add_liability': {
+        const value = Number(input.value);
+        const name = (input.name||'').toString().trim();
+        if(!name || !value || value<=0) return {ok:false, message:'❌ بيانات الالتزام ناقصة'};
+        state.liabilities.push({id:uid(), name, value});
+        saveState();
+        return {ok:true, message:`✅ اتضاف التزام "${name}" بقيمة ${fmt(value)}`};
+      }
+      case 'add_asset': {
+        const value = Number(input.value);
+        const name = (input.name||'').toString().trim();
+        if(!name || !value || value<=0) return {ok:false, message:'❌ بيانات الأصل ناقصة'};
+        state.assets.push({id:uid(), name, value});
+        saveState();
+        return {ok:true, message:`✅ اتضاف أصل "${name}" بقيمة ${fmt(value)}`};
+      }
+      case 'add_gold_item': {
+        const weight = Number(input.weight_grams);
+        const name = (input.name||'').toString().trim();
+        if(!name || !weight || weight<=0) return {ok:false, message:'❌ بيانات قطعة الذهب ناقصة'};
+        state.gold.push({id:uid(), name, weight, value:0, imageData:null});
+        saveState();
+        return {ok:true, message:`✅ اتضافت قطعة ذهب "${name}" وزن ${weight} جم`};
+      }
+      case 'add_goal': {
+        const target = Number(input.target);
+        const name = (input.name||'').toString().trim();
+        if(!name || !target || target<=0) return {ok:false, message:'❌ بيانات هدف الادخار ناقصة'};
+        state.goals.push({id:uid(), name, target, saved:0});
+        saveState();
+        return {ok:true, message:`✅ اتضاف هدف ادخار "${name}" بمبلغ مستهدف ${fmt(target)}`};
+      }
+      case 'contribute_to_goal': {
+        const amount = Number(input.amount);
+        const goalName = (input.goal_name||'').toString().trim();
+        if(!goalName || !amount || amount<=0) return {ok:false, message:'❌ بيانات المساهمة ناقصة'};
+        const lower = goalName.toLowerCase();
+        const goal = state.goals.find(g=>g.name.toLowerCase()===lower) || state.goals.find(g=>g.name.toLowerCase().includes(lower) || lower.includes(g.name.toLowerCase()));
+        if(!goal) return {ok:false, message:`❌ مفيش هدف ادخار باسم "${goalName}"`};
+        goal.saved = Math.max(0, Number(goal.saved||0) + amount);
+        state.expenses.push({
+          id:uid(), name:'ادخار: ' + goal.name, amount, category:'savings', goalId:goal.id,
+          user: window.currentUser||'أنا',
+          date:new Date().toISOString().slice(0,10),
+          month:new Date().toISOString().slice(0,7)
+        });
+        saveState();
+        return {ok:true, message:`✅ اتضافت ${fmt(amount)} لهدف "${goal.name}" (اتسجلت كمصروف ادخار)`};
+      }
+      case 'add_recurring': {
+        const amount = Number(input.amount);
+        const name = (input.name||'').toString().trim();
+        const category = CATS.some(c=>c.key===input.category && c.key!=='liability_payment' && c.key!=='savings') ? input.category : 'other';
+        if(!name || !amount || amount<=0) return {ok:false, message:'❌ بيانات المصروف الثابت ناقصة'};
+        state.recurring.push({id:uid(), name, amount, category, active:true});
+        saveState();
+        return {ok:true, message:`✅ اتضاف مصروف ثابت "${name}" بمبلغ ${fmt(amount)} شهريًا`};
+      }
+      default:
+        return {ok:false, message:'❌ أمر غير معروف من المساعد'};
+    }
+  } catch(e){
+    return {ok:false, message:'❌ حصل خطأ أثناء تنفيذ العملية'};
   }
 }
 
