@@ -78,7 +78,7 @@ body{
 .splash.fadeout{animation:splashFade .4s ease forwards}
 @keyframes splashFade{ to{ opacity:0 } }
 .modalOverlay{
-  position:fixed; inset:0; z-index:300; display:flex; align-items:flex-end;
+  position:fixed; inset:0; z-index:340; display:flex; align-items:flex-end;
   justify-content:center; background:rgba(0,0,0,.5); padding:0;
   opacity:0; pointer-events:none; transition:opacity .18s;
 }
@@ -104,7 +104,7 @@ body{
 .modalBtns .mbOk{background:var(--accent); color:#fff}
 .modalBtns .mbDanger{background:var(--danger); color:#fff}
 .imgViewerOverlay{
-  position:fixed; inset:0; z-index:310; display:flex; align-items:center; justify-content:center;
+  position:fixed; inset:0; z-index:330; display:flex; align-items:center; justify-content:center;
   background:rgba(0,0,0,.78); opacity:0; pointer-events:none; transition:opacity .18s; padding:24px;
 }
 .imgViewerOverlay.show{opacity:1; pointer-events:auto}
@@ -127,8 +127,14 @@ body{
 .chatBubbleRow.other .chatBubble{color:#fff; border-bottom-right-radius:4px}
 .chatMeta{font-size:.7rem; color:var(--sub); margin-top:3px; padding:0 4px}
 .chatEmpty{color:var(--sub); font-size:.85rem; text-align:center; margin-top:30px}
-.chatInputRow{display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--card)}
+.chatInputRow{display:flex; align-items:center; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--card)}
 .chatInputRow input{flex:1}
+.chatImg{max-width:100%; max-height:260px; border-radius:10px; display:block; cursor:pointer; margin-bottom:4px}
+.chatAudio{display:block; margin-bottom:4px; max-width:230px; height:34px}
+.chatCaption{margin-top:2px}
+.chatRecordingLabel{display:none; align-items:center; gap:8px; flex:1}
+.chatRecordingLabel.show{display:flex}
+.chatRecordingDot{color:var(--danger); font-size:.85rem}
 .chatBadge{
   position:absolute; top:-3px; inset-inline-end:-3px; background:var(--danger); color:#fff;
   border-radius:50%; min-width:16px; height:16px; font-size:.62rem; line-height:16px; text-align:center; padding:0 3px;
@@ -290,8 +296,14 @@ details.expander[open] summary{margin-bottom:4px}
   </div>
   <div class="chatMsgs" id="chatMsgs"></div>
   <div class="chatInputRow">
+    <label class="tb-chip" id="chatImageBtn" style="cursor:pointer" title="إرسال صورة">📷<input id="chatImageFile" type="file" accept="image/*" style="display:none" onchange="sendChatImage()"></label>
+    <button class="tb-chip" id="chatVoiceBtn" onclick="toggleVoiceRecording()" title="رسالة صوتية">🎤</button>
+    <span class="chatRecordingLabel" id="chatRecordingLabel">
+      <button class="tb-chip" style="padding:2px 8px" onclick="cancelVoiceRecording()" title="إلغاء">✕</button>
+      <span class="chatRecordingDot">🔴 <span id="chatRecordingTime">0:00</span></span>
+    </span>
     <input id="chatInput" placeholder="اكتب رسالة..." onkeydown="if(event.key==='Enter'){ event.preventDefault(); sendChatMessage(); }">
-    <button class="add" onclick="sendChatMessage()">إرسال</button>
+    <button class="add" id="chatSendBtn" onclick="sendChatMessage()">إرسال</button>
   </div>
 </div>
 
@@ -1882,6 +1894,10 @@ function formatChatTime(ts){
   if(sameDay) return timeStr;
   return d.toLocaleDateString('ar-SA', {day:'numeric', month:'short'}) + ' · ' + timeStr;
 }
+function openChatImage(id){
+  const m = state.messages.find(x=>x.id===id);
+  if(m && m.image) openImageViewer(m.image);
+}
 function renderChatMessages(){
   const el = document.getElementById('chatMsgs');
   if(!el) return;
@@ -1892,22 +1908,29 @@ function renderChatMessages(){
   el.innerHTML = state.messages.map(m=>{
     const mine = m.user === window.currentUser;
     const bg = mine ? '' : `style="background:${userColor(m.user)}"`;
+    let inner = '';
+    if(m.image) inner += `<img class="chatImg" src="${m.image}" onclick="openChatImage('${m.id}')" alt="صورة">`;
+    if(m.audio) inner += `<audio class="chatAudio" controls src="${m.audio}"></audio>`;
+    if(m.text) inner += `<div class="${(m.image||m.audio) ? 'chatCaption' : ''}">${escapeHtml(m.text)}</div>`;
     return `
     <div class="chatBubbleRow ${mine ? 'me' : 'other'}">
-      <div class="chatBubble" ${bg}>${escapeHtml(m.text)}</div>
+      <div class="chatBubble" ${bg}>${inner}</div>
       <div class="chatMeta">${mine ? '' : escapeHtml(m.user) + ' · '}${formatChatTime(m.ts)}</div>
     </div>`;
   }).join('');
   el.scrollTop = el.scrollHeight;
 }
-function sendChatMessage(){
+function sendChatMessage(extra){
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
-  if(!text) return;
+  const attach = extra || {};
+  if(!text && !attach.image && !attach.audio) return;
   state.messages.push({
     id: uid(),
     user: window.currentUser || 'أنا',
-    text,
+    text: text || '',
+    image: attach.image || null,
+    audio: attach.audio || null,
     ts: new Date().toISOString()
   });
   input.value = '';
@@ -1915,6 +1938,97 @@ function sendChatMessage(){
   renderChatMessages();
   setChatLastSeenNow();
   updateChatBadge();
+}
+async function sendChatImage(){
+  const fileEl = document.getElementById('chatImageFile');
+  const file = fileEl.files && fileEl.files[0];
+  if(!file) return;
+  const dataUrl = await compressImage(file, 640, 0.6);
+  fileEl.value = '';
+  sendChatMessage({image:dataUrl});
+}
+
+// ---- رسائل صوتية ----
+let chatMediaRecorder = null;
+let chatAudioChunks = [];
+let chatActiveMicStream = null;
+let chatRecordingTimer = null;
+let chatRecordingSeconds = 0;
+let chatRecordingCancelled = false;
+const CHAT_MAX_RECORDING_SECONDS = 30;
+
+function updateChatRecordingUI(active){
+  document.getElementById('chatRecordingLabel').classList.toggle('show', active);
+  document.getElementById('chatInput').style.display = active ? 'none' : '';
+  document.getElementById('chatSendBtn').style.display = active ? 'none' : '';
+  document.getElementById('chatImageBtn').style.display = active ? 'none' : '';
+  document.getElementById('chatVoiceBtn').textContent = active ? '⏹️' : '🎤';
+}
+function updateChatRecordingTimeLabel(){
+  const m = Math.floor(chatRecordingSeconds/60);
+  const s = chatRecordingSeconds % 60;
+  const el = document.getElementById('chatRecordingTime');
+  if(el) el.textContent = m + ':' + String(s).padStart(2,'0');
+}
+function blobToDataURL(blob){
+  return new Promise(resolve=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+async function toggleVoiceRecording(){
+  if(chatMediaRecorder && chatMediaRecorder.state === 'recording'){
+    chatRecordingCancelled = false;
+    chatMediaRecorder.stop();
+    return;
+  }
+  await startVoiceRecording();
+}
+function cancelVoiceRecording(){
+  if(chatMediaRecorder && chatMediaRecorder.state === 'recording'){
+    chatRecordingCancelled = true;
+    chatMediaRecorder.stop();
+  }
+}
+async function startVoiceRecording(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined'){
+    await showAlert('التسجيل الصوتي مش متاح على المتصفح ده');
+    return;
+  }
+  try{
+    chatActiveMicStream = await navigator.mediaDevices.getUserMedia({audio:true});
+  } catch(e){
+    await showAlert('تعذر الوصول للميكروفون — تأكد من إذن الميكروفون للمتصفح');
+    return;
+  }
+  chatAudioChunks = [];
+  chatRecordingCancelled = false;
+  chatMediaRecorder = new MediaRecorder(chatActiveMicStream);
+  chatMediaRecorder.ondataavailable = e => { if(e.data.size > 0) chatAudioChunks.push(e.data); };
+  chatMediaRecorder.onstop = async () => {
+    if(chatActiveMicStream){ chatActiveMicStream.getTracks().forEach(t=>t.stop()); chatActiveMicStream = null; }
+    clearInterval(chatRecordingTimer);
+    updateChatRecordingUI(false);
+    if(!chatRecordingCancelled && chatAudioChunks.length){
+      const blob = new Blob(chatAudioChunks, {type: chatMediaRecorder.mimeType || 'audio/webm'});
+      const dataUrl = await blobToDataURL(blob);
+      sendChatMessage({audio:dataUrl});
+    }
+    chatAudioChunks = [];
+  };
+  chatMediaRecorder.start();
+  chatRecordingSeconds = 0;
+  updateChatRecordingTimeLabel();
+  updateChatRecordingUI(true);
+  chatRecordingTimer = setInterval(()=>{
+    chatRecordingSeconds++;
+    updateChatRecordingTimeLabel();
+    if(chatRecordingSeconds >= CHAT_MAX_RECORDING_SECONDS){
+      chatRecordingCancelled = false;
+      chatMediaRecorder.stop();
+    }
+  }, 1000);
 }
 
 function addItem(key){
