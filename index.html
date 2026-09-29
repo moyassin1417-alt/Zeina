@@ -109,6 +109,30 @@ body{
 }
 .imgViewerOverlay.show{opacity:1; pointer-events:auto}
 .imgViewerOverlay img{max-width:100%; max-height:100%; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.chatOverlay{
+  position:fixed; inset:0; z-index:320; display:flex; flex-direction:column;
+  background:var(--bg); opacity:0; pointer-events:none; transition:opacity .18s;
+}
+.chatOverlay.show{opacity:1; pointer-events:auto}
+.chatHeader{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:calc(12px + env(safe-area-inset-top)) 16px 12px; border-bottom:1px solid var(--line); background:var(--card);
+}
+.chatMsgs{flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:8px}
+.chatBubbleRow{display:flex; flex-direction:column; max-width:78%}
+.chatBubbleRow.me{align-self:flex-end; align-items:flex-end}
+.chatBubbleRow.other{align-self:flex-start; align-items:flex-start}
+.chatBubble{padding:9px 13px; border-radius:14px; font-size:.9rem; line-height:1.5; white-space:pre-wrap; word-break:break-word}
+.chatBubbleRow.me .chatBubble{background:var(--accent); color:#fff; border-bottom-left-radius:4px}
+.chatBubbleRow.other .chatBubble{color:#fff; border-bottom-right-radius:4px}
+.chatMeta{font-size:.7rem; color:var(--sub); margin-top:3px; padding:0 4px}
+.chatEmpty{color:var(--sub); font-size:.85rem; text-align:center; margin-top:30px}
+.chatInputRow{display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--card)}
+.chatInputRow input{flex:1}
+.chatBadge{
+  position:absolute; top:-3px; inset-inline-end:-3px; background:var(--danger); color:#fff;
+  border-radius:50%; min-width:16px; height:16px; font-size:.62rem; line-height:16px; text-align:center; padding:0 3px;
+}
 h1{font-size:1.3rem; margin:0 0 2px}
 .sub{color:var(--sub); font-size:.85rem; margin-bottom:18px}
 .cards{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px}
@@ -259,6 +283,18 @@ details.expander[open] summary{margin-bottom:4px}
   <img id="imageViewerImg" src="" alt="">
 </div>
 
+<div id="chatOverlay" class="chatOverlay">
+  <div class="chatHeader">
+    <div style="font-weight:700">💬 محادثة بابا وماما</div>
+    <button class="tb-chip" onclick="closeChat()" title="إغلاق">✕</button>
+  </div>
+  <div class="chatMsgs" id="chatMsgs"></div>
+  <div class="chatInputRow">
+    <input id="chatInput" placeholder="اكتب رسالة..." onkeydown="if(event.key==='Enter'){ event.preventDefault(); sendChatMessage(); }">
+    <button class="add" onclick="sendChatMessage()">إرسال</button>
+  </div>
+</div>
+
 <div id="modalOverlay" class="modalOverlay" onclick="modalBackdropClick(event)">
   <div class="modalBox">
     <div class="modalIcon" id="modalIcon" style="display:none"></div>
@@ -276,6 +312,7 @@ details.expander[open] summary{margin-bottom:4px}
 <div class="topbar2">
   <div class="tb-title">🏠 بيت زينة</div>
   <div class="tb-right">
+    <button class="tb-chip" onclick="openChat()" title="محادثة بابا وماما" style="position:relative">💬<span class="chatBadge" id="chatBadge" style="display:none"></span></button>
     <button class="tb-chip" onclick="logout()" title="تسجيل خروج"><img id="topAvatar" class="avatar-sm" alt=""><span id="loggedAs"></span> 🔓</button>
     <button class="tb-chip tb-sync" onclick="toggleSyncPanel()" title="المزامنة"><span class="dot" id="syncDot"></span>⚙️</button>
   </div>
@@ -545,6 +582,7 @@ function normalizeState(s){
   if(!Array.isArray(s.recurring)) s.recurring = [];
   if(!Array.isArray(s.goals)) s.goals = [];
   if(typeof s.zakatCash !== 'number' || isNaN(s.zakatCash)) s.zakatCash = 0;
+  if(!Array.isArray(s.messages)) s.messages = [];
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
   // migrate: old single "budget" field -> per-month budgets map, applied to current month
   if(typeof s.budget === 'number' && s.budget > 0){
@@ -1418,6 +1456,8 @@ function render(){
   renderGold();
   renderGoals();
   renderZakat();
+  updateChatBadge();
+  if(document.getElementById('chatOverlay').classList.contains('show')) renderChatMessages();
   if(document.getElementById('expCategory').value === 'liability_payment') populateLiabilitySelect();
 
   document.getElementById('monthLabel').textContent = monthLabel(viewMonth);
@@ -1798,6 +1838,83 @@ function renderZakat(){
   } else {
     dueEl.textContent = 'لم يبلغ النصاب بعد';
   }
+}
+
+// ============================= محادثة بابا وماما =============================
+// مساحة رسائل مستقلة بين المستخدمين، بتتخزن وتتزامن زي باقي بيانات التطبيق
+// (مفيش إشعارات فورية — الرسائل بتظهر لما حد يفتح التطبيق أو تحصل مزامنة).
+function chatLastSeenKey(){ return 'zainah_chat_lastseen_' + (window.currentUser || 'أنا'); }
+function getChatLastSeen(){ return localStorage.getItem(chatLastSeenKey()) || ''; }
+function setChatLastSeenNow(){
+  const last = state.messages.length ? state.messages[state.messages.length-1].ts : new Date().toISOString();
+  try{ localStorage.setItem(chatLastSeenKey(), last); }catch(e){}
+}
+function updateChatBadge(){
+  const badge = document.getElementById('chatBadge');
+  if(!badge) return;
+  const lastSeen = getChatLastSeen();
+  const unread = state.messages.filter(m => m.user !== window.currentUser && m.ts > lastSeen).length;
+  if(unread > 0){
+    badge.textContent = unread > 9 ? '9+' : String(unread);
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+function openChat(){
+  document.getElementById('chatOverlay').classList.add('show');
+  renderChatMessages();
+  setChatLastSeenNow();
+  updateChatBadge();
+  setTimeout(()=>{ document.getElementById('chatInput').focus(); }, 100);
+}
+function closeChat(){
+  document.getElementById('chatOverlay').classList.remove('show');
+  setChatLastSeenNow();
+  updateChatBadge();
+}
+function formatChatTime(ts){
+  const d = new Date(ts);
+  if(isNaN(d.getTime())) return '';
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  const timeStr = d.toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'});
+  if(sameDay) return timeStr;
+  return d.toLocaleDateString('ar-SA', {day:'numeric', month:'short'}) + ' · ' + timeStr;
+}
+function renderChatMessages(){
+  const el = document.getElementById('chatMsgs');
+  if(!el) return;
+  if(!state.messages.length){
+    el.innerHTML = '<div class="chatEmpty">لسه مفيش رسائل — ابدأوا المحادثة 👋</div>';
+    return;
+  }
+  el.innerHTML = state.messages.map(m=>{
+    const mine = m.user === window.currentUser;
+    const bg = mine ? '' : `style="background:${userColor(m.user)}"`;
+    return `
+    <div class="chatBubbleRow ${mine ? 'me' : 'other'}">
+      <div class="chatBubble" ${bg}>${escapeHtml(m.text)}</div>
+      <div class="chatMeta">${mine ? '' : escapeHtml(m.user) + ' · '}${formatChatTime(m.ts)}</div>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+function sendChatMessage(){
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text) return;
+  state.messages.push({
+    id: uid(),
+    user: window.currentUser || 'أنا',
+    text,
+    ts: new Date().toISOString()
+  });
+  input.value = '';
+  saveState();
+  renderChatMessages();
+  setChatLastSeenNow();
+  updateChatBadge();
 }
 
 function addItem(key){
