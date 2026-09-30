@@ -150,8 +150,18 @@ h1{font-size:1.3rem; margin:0 0 2px}
 .section{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-bottom:14px}
 .section h2{font-size:1rem; margin:0 0 10px; display:flex; justify-content:space-between; align-items:center}
 .section h2 span.tot{font-size:.85rem; color:var(--sub); font-weight:400}
-.row{display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); gap:8px}
-.row:last-child{border-bottom:none}
+.panel{background:var(--bg); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:14px; box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.panel:first-child{margin-top:0}
+.panelTitle{display:flex; align-items:center; gap:9px}
+.panelIcon{
+  width:28px; height:28px; min-width:28px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+  background:var(--accent); color:#fff; font-size:.88rem; box-shadow:0 1px 2px rgba(0,0,0,.12);
+}
+.row{
+  display:flex; justify-content:space-between; align-items:center; gap:8px;
+  padding:10px 12px; margin-bottom:8px; background:var(--card); border:1px solid var(--line); border-radius:10px;
+}
+.row:last-child{margin-bottom:0}
 .row .name{font-weight:600; font-size:.9rem}
 .row .note{font-size:.75rem; color:var(--sub)}
 .row .amt{font-weight:700; font-size:.9rem; white-space:nowrap}
@@ -167,10 +177,10 @@ button.add{
   padding:8px 16px; font-size:.85rem; font-weight:600; cursor:pointer; white-space:nowrap;
 }
 button.add:active{opacity:.8}
-.budgetbar{height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:8px}
-.budgetbar>div{height:100%; background:var(--accent2)}
-.budgetbar.warn>div{background:var(--warn)}
-.budgetbar.over>div{background:var(--danger)}
+.budgetbar{height:14px; border-radius:8px; background:var(--card); overflow:hidden; margin-top:10px; box-shadow:inset 0 1px 2px rgba(0,0,0,.08)}
+.budgetbar>div{height:100%; background:linear-gradient(90deg, var(--accent2), #58a389); transition:width .35s ease}
+.budgetbar.warn>div{background:linear-gradient(90deg, var(--warn), #e0a43f)}
+.budgetbar.over>div{background:linear-gradient(90deg, var(--danger), #c96a4c)}
 .userpick{display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:.85rem; color:var(--sub)}
 .userpick .me{font-weight:700; color:var(--ink); cursor:pointer; text-decoration:underline dotted}
 .empty{color:var(--sub); font-size:.85rem; text-align:center; padding:10px 0}
@@ -378,95 +388,105 @@ details.expander[open] summary{margin-bottom:4px}
     <span class="monthlabel" id="monthLabel"></span>
     <button class="navbtn" onclick="changeMonth(1)" title="الشهر التالي" style="width:auto; padding:0 10px; font-size:.8rem">التالي</button>
   </div>
-  <h2>ميزانية الشهر</h2>
-  <div class="formrow">
-    <input id="budgetVal" placeholder="ميزانية هذا الشهر بالريال" type="number">
-    <button class="add" onclick="setBudget()">حفظ</button>
-  </div>
-  <div class="budgetbar" id="budgetBar"><div id="budgetFill" style="width:0%"></div></div>
-  <div class="sub" id="budgetText" style="margin-top:6px"></div>
 
-  <h2 style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px">إضافة مصروف</h2>
-  <div class="userpick" id="userPick"></div>
-  <div class="formrow">
-    <select id="expCategory" onchange="onCategoryChange()"></select>
-    <input id="expVal" placeholder="المبلغ" type="number">
-  </div>
-  <div class="formrow" id="liabPayRow" style="display:none">
-    <select id="expLiabilitySelect" style="flex:1" onchange="onLiabilitySelectChange()"></select>
-  </div>
-  <div class="formrow">
-    <input id="expName" placeholder="تفاصيل المصروف (اختياري)">
-    <button class="add" id="expSubmitBtn" style="flex:1" onclick="addExpense()">إضافة</button>
-  </div>
-  <div class="formrow">
-    <label class="filepick" id="expFileLabel" style="flex:1">📷 صورة الفاتورة (اختياري)<input id="expFile" type="file" accept="image/*"></label>
-  </div>
-  <div class="formrow" id="expReceiptPreviewRow" style="display:none; align-items:center; gap:8px">
-    <img id="expReceiptPreviewImg" style="width:44px; height:44px; border-radius:8px; object-fit:cover; border:1px solid var(--line); flex:0 0 auto">
-    <span class="sub" style="flex:1; margin-bottom:0">فيه صورة فاتورة مرفقة بالفعل</span>
-    <button class="del" onclick="clearExpReceiptPreview()">✕</button>
-  </div>
-  <button class="add" id="expCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditExpense()">إلغاء التعديل</button>
-
-  <details class="expander" style="margin-top:10px">
-    <summary>➕ إضافة عدة مصاريف دفعة واحدة (لصق سريع)</summary>
-    <div style="margin-top:8px">
-      <div class="sub" style="margin-bottom:6px">سطر لكل بند: اسم التصنيف ثم المبلغ، مثال:<br>أقساط 4337.68<br>بقالة 1060.15</div>
-      <textarea id="bulkImportText" rows="5" style="width:100%; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px; font-size:.85rem; color:var(--ink); font-family:inherit; resize:vertical"></textarea>
-      <button class="add" style="width:100%; margin-top:8px" onclick="bulkAddExpenses()">استيراد إلى شهر <span id="bulkMonthLabel"></span></button>
-      <button class="add" style="width:100%; margin-top:8px; background:var(--accent2)" onclick="mergeDuplicateExpenses()">🔗 دمج المصاريف المكررة (نفس التصنيف) لهذا الشهر</button>
+  <div class="panel">
+    <h2><span class="panelTitle"><span class="panelIcon">💰</span>ميزانية الشهر</span></h2>
+    <div class="formrow">
+      <input id="budgetVal" placeholder="ميزانية هذا الشهر بالريال" type="number">
+      <button class="add" onclick="setBudget()">حفظ</button>
     </div>
-  </details>
-
-  <div id="recurringBanner" style="display:none; margin-top:10px; align-items:center; justify-content:space-between; gap:8px; background:var(--bg); border:1px solid var(--warn); border-radius:10px; padding:10px 12px">
-    <span class="sub" id="recurringBannerText" style="color:var(--ink)"></span>
-    <button class="add" style="white-space:nowrap" onclick="applyAllRecurring()">إضافة الآن</button>
+    <div class="budgetbar" id="budgetBar"><div id="budgetFill" style="width:0%"></div></div>
+    <div class="sub" id="budgetText" style="margin-top:8px; margin-bottom:0"></div>
   </div>
 
-  <details class="expander" style="margin-top:10px">
-    <summary>🔁 المصاريف الثابتة الشهرية (<span id="recurringCount">0</span>)</summary>
-    <div style="margin-top:8px">
-      <div class="sub" style="margin-bottom:6px">مصاريف بتتكرر كل شهر بنفس القيمة تقريبًا (إيجار، اشتراكات...) — سجّلها هنا مرة واحدة وبعدين ضيفها لأي شهر بضغطة واحدة</div>
-      <div id="recurringList"></div>
-      <div class="formrow" style="margin-top:8px">
-        <select id="recCategory"></select>
-        <input id="recVal" placeholder="المبلغ" type="number">
-      </div>
-      <div class="formrow">
-        <input id="recName" placeholder="اسم المصروف الثابت (إيجار، نتفلكس...)">
-        <button class="add" style="flex:1" onclick="addRecurring()">إضافة ثابت</button>
-      </div>
+  <div class="panel">
+    <h2><span class="panelTitle"><span class="panelIcon" style="background:var(--accent2)">🧾</span>إضافة مصروف</span></h2>
+    <div class="userpick" id="userPick"></div>
+    <div class="formrow">
+      <select id="expCategory" onchange="onCategoryChange()"></select>
+      <input id="expVal" placeholder="المبلغ" type="number">
     </div>
-  </details>
-
-  <details class="expander" style="margin-top:10px" id="searchDetails">
-    <summary>🔎 البحث في كل المصاريف (كل الأشهر)</summary>
-    <div style="margin-top:8px">
-      <div class="formrow">
-        <input id="searchText" placeholder="ابحث بالاسم أو التفاصيل..." oninput="renderSearchResults()">
-        <select id="searchCategory" onchange="renderSearchResults()"></select>
-      </div>
-      <div class="formrow">
-        <select id="searchUser" onchange="renderSearchResults()">
-          <option value="">كل الأفراد</option>
-          <option value="بابا">بابا</option>
-          <option value="ماما">ماما</option>
-        </select>
-        <button class="add" style="flex:1; background:var(--sub)" onclick="clearSearch()">مسح البحث</button>
-      </div>
-      <div class="sub" id="searchSummary" style="margin:8px 0"></div>
-      <div id="searchResults"></div>
+    <div class="formrow" id="liabPayRow" style="display:none">
+      <select id="expLiabilitySelect" style="flex:1" onchange="onLiabilitySelectChange()"></select>
     </div>
-  </details>
+    <div class="formrow">
+      <input id="expName" placeholder="تفاصيل المصروف (اختياري)">
+      <button class="add" id="expSubmitBtn" style="flex:1" onclick="addExpense()">إضافة</button>
+    </div>
+    <div class="formrow">
+      <label class="filepick" id="expFileLabel" style="flex:1">📷 صورة الفاتورة (اختياري)<input id="expFile" type="file" accept="image/*"></label>
+    </div>
+    <div class="formrow" id="expReceiptPreviewRow" style="display:none; align-items:center; gap:8px">
+      <img id="expReceiptPreviewImg" style="width:44px; height:44px; border-radius:8px; object-fit:cover; border:1px solid var(--line); flex:0 0 auto">
+      <span class="sub" style="flex:1; margin-bottom:0">فيه صورة فاتورة مرفقة بالفعل</span>
+      <button class="del" onclick="clearExpReceiptPreview()">✕</button>
+    </div>
+    <button class="add" id="expCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditExpense()">إلغاء التعديل</button>
+  </div>
 
-  <h2 style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px">مصاريف الشهر <span class="tot" id="expTotal"></span></h2>
-  <div class="sub" id="monthCompareText" style="margin-top:-10px; margin-bottom:10px"></div>
-  <div id="expPreview"></div>
-  <details id="expDetails" class="expander">
-    <summary>عرض كل مصاريف الشهر (<span id="expCount">0</span>)</summary>
-    <div id="expList" style="margin-top:8px"></div>
-  </details>
+  <div class="panel">
+    <h2><span class="panelTitle"><span class="panelIcon" style="background:#7d7669">🛠️</span>أدوات إضافية</span></h2>
+    <details class="expander">
+      <summary>➕ إضافة عدة مصاريف دفعة واحدة (لصق سريع)</summary>
+      <div style="margin-top:8px">
+        <div class="sub" style="margin-bottom:6px">سطر لكل بند: اسم التصنيف ثم المبلغ، مثال:<br>أقساط 4337.68<br>بقالة 1060.15</div>
+        <textarea id="bulkImportText" rows="5" style="width:100%; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px; font-size:.85rem; color:var(--ink); font-family:inherit; resize:vertical"></textarea>
+        <button class="add" style="width:100%; margin-top:8px" onclick="bulkAddExpenses()">استيراد إلى شهر <span id="bulkMonthLabel"></span></button>
+        <button class="add" style="width:100%; margin-top:8px; background:var(--accent2)" onclick="mergeDuplicateExpenses()">🔗 دمج المصاريف المكررة (نفس التصنيف) لهذا الشهر</button>
+      </div>
+    </details>
+
+    <div id="recurringBanner" style="display:none; margin-top:10px; align-items:center; justify-content:space-between; gap:8px; background:var(--card); border:1px solid var(--warn); border-radius:10px; padding:10px 12px">
+      <span class="sub" id="recurringBannerText" style="color:var(--ink)"></span>
+      <button class="add" style="white-space:nowrap" onclick="applyAllRecurring()">إضافة الآن</button>
+    </div>
+
+    <details class="expander" style="margin-top:10px">
+      <summary>🔁 المصاريف الثابتة الشهرية (<span id="recurringCount">0</span>)</summary>
+      <div style="margin-top:8px">
+        <div class="sub" style="margin-bottom:6px">مصاريف بتتكرر كل شهر بنفس القيمة تقريبًا (إيجار، اشتراكات...) — سجّلها هنا مرة واحدة وبعدين ضيفها لأي شهر بضغطة واحدة</div>
+        <div id="recurringList"></div>
+        <div class="formrow" style="margin-top:8px">
+          <select id="recCategory"></select>
+          <input id="recVal" placeholder="المبلغ" type="number">
+        </div>
+        <div class="formrow">
+          <input id="recName" placeholder="اسم المصروف الثابت (إيجار، نتفلكس...)">
+          <button class="add" style="flex:1" onclick="addRecurring()">إضافة ثابت</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="expander" style="margin-top:10px" id="searchDetails">
+      <summary>🔎 البحث في كل المصاريف (كل الأشهر)</summary>
+      <div style="margin-top:8px">
+        <div class="formrow">
+          <input id="searchText" placeholder="ابحث بالاسم أو التفاصيل..." oninput="renderSearchResults()">
+          <select id="searchCategory" onchange="renderSearchResults()"></select>
+        </div>
+        <div class="formrow">
+          <select id="searchUser" onchange="renderSearchResults()">
+            <option value="">كل الأفراد</option>
+            <option value="بابا">بابا</option>
+            <option value="ماما">ماما</option>
+          </select>
+          <button class="add" style="flex:1; background:var(--sub)" onclick="clearSearch()">مسح البحث</button>
+        </div>
+        <div class="sub" id="searchSummary" style="margin:8px 0"></div>
+        <div id="searchResults"></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <h2><span class="panelTitle"><span class="panelIcon" style="background:#b5348d">📋</span>مصاريف الشهر</span><span class="tot" id="expTotal"></span></h2>
+    <div class="sub" id="monthCompareText" style="margin-top:-6px; margin-bottom:6px"></div>
+    <div id="expPreview"></div>
+    <details id="expDetails" class="expander">
+      <summary>عرض كل مصاريف الشهر (<span id="expCount">0</span>)</summary>
+      <div id="expList" style="margin-top:8px"></div>
+    </details>
+  </div>
 </div>
 
 <div class="section tabview" data-tab="liabilities">
