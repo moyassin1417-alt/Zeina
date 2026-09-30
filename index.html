@@ -404,6 +404,7 @@ details.expander[open] summary{margin-bottom:4px}
     <button class="tb-chip" onclick="openSearch()" title="البحث في المصاريف">🔎</button>
     <button class="tb-chip" onclick="openChat()" title="محادثة بابا وماما" style="position:relative">💬<span class="chatBadge" id="chatBadge" style="display:none"></span></button>
     <button class="tb-chip" onclick="logout()" title="تسجيل خروج"><img id="topAvatar" class="avatar-sm" alt=""><span id="loggedAs"></span></button>
+    <button class="tb-chip" onclick="quickSyncPush()" title="رفع البيانات الآن">⬆️</button>
     <button class="tb-chip tb-sync" onclick="toggleSyncPanel()" title="المزامنة"><span class="dot" id="syncDot"></span>⚙️</button>
   </div>
 </div>
@@ -1456,6 +1457,17 @@ function toggleSyncPanel(){
     document.getElementById('syncTextPanel').textContent = 'مزامنة غير مفعّلة';
   }
 }
+async function quickSyncPush(){
+  if(!syncKey || !syncBin){
+    showToast('فعّل المزامنة الأول من ⚙️');
+    toggleSyncPanel();
+    return;
+  }
+  showToast('جارِ رفع البيانات...');
+  await syncPush();
+  const ok = document.getElementById('syncDot').classList.contains('on');
+  showToast(ok ? 'تم رفع البيانات بنجاح ✓' : 'تعذّر الرفع، هيتحاول تاني تلقائيًا');
+}
 function setSyncStatus(on, text){
   document.getElementById('syncDot').className = 'dot' + (on?' on':'');
   document.getElementById('syncTextPanel').textContent = text;
@@ -1891,9 +1903,9 @@ function renderGold(){
     const val = goldItemValue(g);
     return `
     <div class="goldrow">
-      ${g.imageData ? `<img src="${g.imageData}">` : `<div class="ph">💍</div>`}
+      ${g.imageData ? `<img src="${g.imageData}" title="${escapeHtml(g.name)}">` : `<div class="ph">💍</div>`}
       <div class="info">
-        <div class="name">${escapeHtml(g.name)}</div>
+        ${g.imageData ? '' : `<div class="name">${escapeHtml(g.name)}</div>`}
         <div class="note">${g.weight} جم${val?' · '+fmt(val):''}</div>
       </div>
       <button class="edit" onclick="editGoldItem('${g.id}')">✎</button>
