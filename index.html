@@ -571,11 +571,17 @@ details.expander[open] summary{margin-bottom:4px}
     <input id="goldWeight" placeholder="الوزن (جم)" type="number">
   </div>
   <div class="formrow">
-    <label class="filepick" id="goldFileLabel" style="flex:1">📷 صورة القطعة<input id="goldFile" type="file" accept="image/*"></label>
+    <label class="filepick" id="goldFileLabel" style="flex:1">📷 صورة القطعة (اختياري)<input id="goldFile" type="file" accept="image/*"></label>
+  </div>
+  <div class="formrow" id="goldImagePreviewRow" style="display:none; align-items:center; gap:8px">
+    <img id="goldImagePreviewImg" style="width:44px; height:44px; border-radius:8px; object-fit:cover; border:1px solid var(--line); flex:0 0 auto">
+    <span class="sub" style="flex:1; margin-bottom:0">فيه صورة مرفقة بالفعل</span>
+    <button class="del" onclick="clearGoldImagePreview()">✕</button>
   </div>
   <div class="formrow">
-    <button class="add" style="flex:1" onclick="addGold()">إضافة القطعة</button>
+    <button class="add" id="goldSubmitBtn" style="flex:1" onclick="addGold()">إضافة القطعة</button>
   </div>
+  <button class="add" id="goldCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditGold()">إلغاء التعديل</button>
 </div>
 
 <div class="section tabview" data-tab="reports">
@@ -1903,27 +1909,57 @@ function renderGold(){
     const val = goldItemValue(g);
     return `
     <div class="goldrow">
-      ${g.imageData ? `<img src="${g.imageData}" title="${escapeHtml(g.name)}">` : `<div class="ph">💍</div>`}
+      ${g.imageData ? `<img src="${g.imageData}" title="${escapeHtml(g.name)}" style="cursor:pointer" onclick="openImageViewer('${g.imageData}')">` : `<div class="ph">💍</div>`}
       <div class="info">
         ${g.imageData ? '' : `<div class="name">${escapeHtml(g.name)}</div>`}
         <div class="note">${g.weight} جم${val?' · '+fmt(val):''}</div>
       </div>
-      <button class="edit" onclick="editGoldItem('${g.id}')">✎</button>
+      <button class="edit" onclick="startEditGold('${g.id}')">✎</button>
       <button class="del" onclick="removeItem('gold','${g.id}')">✕</button>
     </div>`;
   }).join('');
 }
-async function editGoldItem(id){
+let editingGoldId = null;
+let editingGoldExistingImage = null;
+let editingGoldImageCleared = false;
+function startEditGold(id){
   const item = state.gold.find(g=>g.id===id);
   if(!item) return;
-  const result = await showEditNameValue('تعديل قطعة الذهب (الاسم والوزن)', item.name, item.weight, 'الوزن بالجرام');
-  if(!result) return;
-  if(!result.name){ await showAlert('اكتب اسمًا صحيحًا'); return; }
-  const weight = Number(result.value);
-  if(isNaN(weight) || weight <= 0){ await showAlert('وزن غير صحيح'); return; }
-  item.name = result.name;
-  item.weight = weight;
-  saveState(); render();
+  editingGoldId = id;
+  document.getElementById('goldName').value = item.name || '';
+  document.getElementById('goldWeight').value = item.weight;
+  document.getElementById('goldSubmitBtn').textContent = 'تحديث';
+  document.getElementById('goldCancelBtn').style.display = 'block';
+  editingGoldImageCleared = false;
+  editingGoldExistingImage = item.imageData || null;
+  document.getElementById('goldFile').value = '';
+  const previewRow = document.getElementById('goldImagePreviewRow');
+  if(editingGoldExistingImage){
+    document.getElementById('goldImagePreviewImg').src = editingGoldExistingImage;
+    previewRow.style.display = 'flex';
+  } else {
+    previewRow.style.display = 'none';
+  }
+  showTab('assets');
+  const nameEl = document.getElementById('goldName');
+  nameEl.scrollIntoView({behavior:'smooth', block:'center'});
+  nameEl.focus();
+}
+function clearGoldImagePreview(){
+  editingGoldImageCleared = true;
+  editingGoldExistingImage = null;
+  document.getElementById('goldImagePreviewRow').style.display = 'none';
+}
+function cancelEditGold(){
+  editingGoldId = null;
+  editingGoldExistingImage = null;
+  editingGoldImageCleared = false;
+  document.getElementById('goldName').value = '';
+  document.getElementById('goldWeight').value = '';
+  document.getElementById('goldFile').value = '';
+  document.getElementById('goldImagePreviewRow').style.display = 'none';
+  document.getElementById('goldSubmitBtn').textContent = 'إضافة القطعة';
+  document.getElementById('goldCancelBtn').style.display = 'none';
 }
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
@@ -2494,16 +2530,28 @@ async function addGold(){
   const fileEl = document.getElementById('goldFile');
   const name = nameEl.value.trim(); const weight = Number(weightEl.value);
   if(!name || !weight) return;
-  const item = {id:uid(), name, weight, value:0, imageData:null};
-  const finish = ()=>{
-    state.gold.push(item);
-    nameEl.value=''; weightEl.value=''; fileEl.value='';
-    saveState(); render();
-  };
+  const existing = editingGoldId ? state.gold.find(g=>g.id===editingGoldId) : null;
+  let imageData = existing ? (editingGoldImageCleared ? null : editingGoldExistingImage) : null;
   if(fileEl.files && fileEl.files[0]){
-    item.imageData = await compressImage(fileEl.files[0], 480, 0.7);
+    imageData = await compressImage(fileEl.files[0], 480, 0.7);
   }
-  finish();
+  if(existing){
+    existing.name = name;
+    existing.weight = weight;
+    existing.imageData = imageData;
+  } else {
+    state.gold.push({id:uid(), name, weight, value:0, imageData});
+  }
+  nameEl.value=''; weightEl.value=''; fileEl.value='';
+  document.getElementById('goldImagePreviewRow').style.display = 'none';
+  if(existing){
+    editingGoldId = null;
+    editingGoldExistingImage = null;
+    editingGoldImageCleared = false;
+    document.getElementById('goldSubmitBtn').textContent = 'إضافة القطعة';
+    document.getElementById('goldCancelBtn').style.display = 'none';
+  }
+  saveState(); render();
 }
 const DELETE_UNDO_LABELS = { assets:'الأصل', liabilities:'الالتزام', expenses:'المصروف', gold:'القطعة' };
 function removeItem(key,id){
@@ -2529,6 +2577,7 @@ function removeItem(key,id){
     }
   }
   if(key === 'expenses' && editingExpenseId === id) cancelEditExpense();
+  if(key === 'gold' && editingGoldId === id) cancelEditGold();
   state[key].splice(idx,1);
   saveState(); render();
   showUndoToast(`تم حذف ${DELETE_UNDO_LABELS[key]||'البند'}`, () => {
