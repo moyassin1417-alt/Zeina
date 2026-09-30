@@ -114,6 +114,16 @@ body{
   background:var(--bg); opacity:0; pointer-events:none; transition:opacity .18s;
 }
 .chatOverlay.show{opacity:1; pointer-events:auto}
+.searchOverlay{
+  position:fixed; inset:0; z-index:322; display:flex; flex-direction:column;
+  background:var(--bg); opacity:0; pointer-events:none; transition:opacity .18s;
+}
+.searchOverlay.show{opacity:1; pointer-events:auto}
+.searchOverlayHeader{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:calc(12px + env(safe-area-inset-top)) 16px 12px; border-bottom:1px solid var(--line); background:var(--card);
+}
+.searchOverlayBody{flex:1; overflow-y:auto; padding:14px 16px}
 .chatHeader{
   display:flex; align-items:center; justify-content:space-between;
   padding:calc(12px + env(safe-area-inset-top)) 16px 12px; border-bottom:1px solid var(--line); background:var(--card);
@@ -317,6 +327,29 @@ details.expander[open] summary{margin-bottom:4px}
   </div>
 </div>
 
+<div id="searchOverlay" class="searchOverlay">
+  <div class="searchOverlayHeader">
+    <div style="font-weight:700">🔎 البحث في كل المصاريف</div>
+    <button class="tb-chip" onclick="closeSearch()" title="إغلاق">✕</button>
+  </div>
+  <div class="searchOverlayBody">
+    <div class="formrow">
+      <input id="searchText" placeholder="ابحث بالاسم أو التفاصيل..." oninput="renderSearchResults()">
+      <select id="searchCategory" onchange="renderSearchResults()"></select>
+    </div>
+    <div class="formrow">
+      <select id="searchUser" onchange="renderSearchResults()">
+        <option value="">كل الأفراد</option>
+        <option value="بابا">بابا</option>
+        <option value="ماما">ماما</option>
+      </select>
+      <button class="add" style="flex:1; background:var(--sub)" onclick="clearSearch()">مسح البحث</button>
+    </div>
+    <div class="sub" id="searchSummary" style="margin:8px 0"></div>
+    <div id="searchResults"></div>
+  </div>
+</div>
+
 <div id="modalOverlay" class="modalOverlay" onclick="modalBackdropClick(event)">
   <div class="modalBox">
     <div class="modalIcon" id="modalIcon" style="display:none"></div>
@@ -334,6 +367,7 @@ details.expander[open] summary{margin-bottom:4px}
 <div class="topbar2">
   <div class="tb-title">🏠 بيت زينة</div>
   <div class="tb-right">
+    <button class="tb-chip" onclick="openSearch()" title="البحث في المصاريف">🔎</button>
     <button class="tb-chip" onclick="openChat()" title="محادثة بابا وماما" style="position:relative">💬<span class="chatBadge" id="chatBadge" style="display:none"></span></button>
     <button class="tb-chip" onclick="logout()" title="تسجيل خروج"><img id="topAvatar" class="avatar-sm" alt=""><span id="loggedAs"></span> 🔓</button>
     <button class="tb-chip tb-sync" onclick="toggleSyncPanel()" title="المزامنة"><span class="dot" id="syncDot"></span>⚙️</button>
@@ -422,11 +456,8 @@ details.expander[open] summary{margin-bottom:4px}
       <button class="del" onclick="clearExpReceiptPreview()">✕</button>
     </div>
     <button class="add" id="expCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditExpense()">إلغاء التعديل</button>
-  </div>
 
-  <div class="panel">
-    <h2><span class="panelTitle"><span class="panelIcon" style="background:#7d7669">🛠️</span>أدوات إضافية</span></h2>
-    <details class="expander">
+    <details class="expander" style="margin-top:14px">
       <summary>➕ إضافة عدة مصاريف دفعة واحدة (لصق سريع)</summary>
       <div style="margin-top:8px">
         <div class="sub" style="margin-bottom:6px">سطر لكل بند: اسم التصنيف ثم المبلغ، مثال:<br>أقساط 4337.68<br>بقالة 1060.15</div>
@@ -454,26 +485,6 @@ details.expander[open] summary{margin-bottom:4px}
           <input id="recName" placeholder="اسم المصروف الثابت (إيجار، نتفلكس...)">
           <button class="add" style="flex:1" onclick="addRecurring()">إضافة ثابت</button>
         </div>
-      </div>
-    </details>
-
-    <details class="expander" style="margin-top:10px" id="searchDetails">
-      <summary>🔎 البحث في كل المصاريف (كل الأشهر)</summary>
-      <div style="margin-top:8px">
-        <div class="formrow">
-          <input id="searchText" placeholder="ابحث بالاسم أو التفاصيل..." oninput="renderSearchResults()">
-          <select id="searchCategory" onchange="renderSearchResults()"></select>
-        </div>
-        <div class="formrow">
-          <select id="searchUser" onchange="renderSearchResults()">
-            <option value="">كل الأفراد</option>
-            <option value="بابا">بابا</option>
-            <option value="ماما">ماما</option>
-          </select>
-          <button class="add" style="flex:1; background:var(--sub)" onclick="clearSearch()">مسح البحث</button>
-        </div>
-        <div class="sub" id="searchSummary" style="margin:8px 0"></div>
-        <div id="searchResults"></div>
       </div>
     </details>
   </div>
@@ -831,6 +842,7 @@ function renderSearchResults(){
 function jumpToExpense(id){
   const e = state.expenses.find(x=>x.id===id);
   if(!e) return;
+  closeSearch();
   const m = expenseMonth(e);
   if(m && m !== viewMonth){
     viewMonth = m;
@@ -889,6 +901,14 @@ const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو
 function monthLabel(ym){
   const [y,m] = ym.split('-').map(Number);
   return AR_MONTHS[m-1] + ' ' + y;
+}
+function formatExpenseDate(dateStr){
+  if(!dateStr) return '';
+  const parts = String(dateStr).split('-');
+  if(parts.length < 3) return dateStr;
+  const m = Number(parts[1]), d = Number(parts[2]);
+  if(!m || !d || !AR_MONTHS[m-1]) return dateStr;
+  return d + ' ' + AR_MONTHS[m-1];
 }
 function expenseMonth(e){ return e.month || (e.date||'').slice(0,7); }
 function prevMonthOf(ym){
@@ -1529,7 +1549,7 @@ function render(){
   const isWarn = !isOver && monthBudget>0 && (expTotal/monthBudget)>=0.8;
   document.getElementById('budgetBar').className = 'budgetbar' + (isOver ? ' over' : isWarn ? ' warn' : '');
   document.getElementById('budgetText').textContent = monthBudget
-    ? `صُرف ${fmt(expTotal)} من ${fmt(monthBudget)}` + (isWarn ? ' — اقتربت من حد الميزانية ⚠️' : '')
+    ? `صُرف ${fmt(expTotal)} وكتبقي ${fmt(remaining)}` + (isWarn ? ' — اقتربت من حد الميزانية ⚠️' : '')
     : 'لم تُحدد ميزانية لهذا الشهر بعد';
 
   const up = document.getElementById('userPick');
@@ -1558,7 +1578,7 @@ function expenseRowHtml(e){
   const c = catInfo(e.category);
   return `
   <div class="row">
-    <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(e.name)}</div><div class="note"><span class="userdot" style="background:${userColor(e.user)}"></span>${c.label} · ${escapeHtml(e.user||'')} · ${e.date}</div></div>
+    <div><div class="name"><span class="catdot" style="background:${c.color}"></span>${c.icon} ${escapeHtml(e.name)}</div><div class="note"><span class="userdot" style="background:${userColor(e.user)}"></span>${c.label} · ${escapeHtml(e.user||'')} · ${formatExpenseDate(e.date)}</div></div>
     <div class="amt">${fmt(e.amount)}</div>
     ${e.receiptImage ? `<button class="edit" onclick="openExpenseReceipt('${e.id}')" title="عرض صورة الفاتورة">📷</button>` : ''}
     <button class="edit" onclick="startEditExpense('${e.id}')">✎</button>
@@ -1917,6 +1937,15 @@ function closeChat(){
   document.getElementById('chatOverlay').classList.remove('show');
   setChatLastSeenNow();
   updateChatBadge();
+}
+function openSearch(){
+  populateSearchCategorySelect();
+  document.getElementById('searchOverlay').classList.add('show');
+  renderSearchResults();
+  setTimeout(()=>{ document.getElementById('searchText').focus(); }, 100);
+}
+function closeSearch(){
+  document.getElementById('searchOverlay').classList.remove('show');
 }
 function formatChatTime(ts){
   const d = new Date(ts);
