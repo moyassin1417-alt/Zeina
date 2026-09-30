@@ -50,6 +50,45 @@ body{
   box-shadow:0 4px 14px rgba(0,0,0,.28); cursor:pointer;
 }
 .fab:active{opacity:.85}
+.zeinaMascot{
+  position:fixed; bottom:78px; inset-inline-start:14px; z-index:65;
+  display:flex; flex-direction:column-reverse; align-items:flex-start; gap:8px; max-width:210px;
+}
+.zeinaAvatarBtn{
+  width:60px; height:60px; min-width:60px; border-radius:50%; padding:0; border:none; cursor:pointer;
+  background:linear-gradient(145deg, var(--accent), var(--accent2)); position:relative;
+  box-shadow:0 6px 16px rgba(0,0,0,.28), 0 2px 5px rgba(0,0,0,.15);
+  animation:zeinaFloat 3.4s ease-in-out infinite;
+}
+.zeinaAvatarImg{
+  width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:50% 20%;
+  border:3px solid var(--card); display:block;
+}
+.zeinaHouseBadge{
+  position:absolute; bottom:-2px; inset-inline-end:-4px; font-size:14px; line-height:1;
+  background:var(--card); border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 5px rgba(0,0,0,.25); border:1px solid var(--line);
+}
+.zeinaAvatarBtn.wiggle{ animation:zeinaWiggle .5s ease; }
+@keyframes zeinaFloat{
+  0%,100%{ transform:translateY(0) rotate(-1deg); }
+  50%{ transform:translateY(-7px) rotate(2deg); }
+}
+@keyframes zeinaWiggle{
+  0%{ transform:scale(1) rotate(0); }
+  30%{ transform:scale(1.15) rotate(-10deg); }
+  60%{ transform:scale(.94) rotate(8deg); }
+  100%{ transform:scale(1) rotate(0); }
+}
+.zeinaBubble{
+  display:none; background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:14px;
+  padding:9px 13px; font-size:.82rem; line-height:1.5; box-shadow:0 8px 20px rgba(0,0,0,.2); max-width:210px;
+}
+.zeinaBubble.show{ display:block; animation:zeinaBubbleIn .22s ease; }
+@keyframes zeinaBubbleIn{
+  from{ opacity:0; transform:translateY(6px) scale(.92); }
+  to{ opacity:1; transform:translateY(0) scale(1); }
+}
 .userdot{display:inline-block; width:7px; height:7px; border-radius:50%; margin-inline-end:4px; vertical-align:middle}
 .donut{width:88px; height:88px; min-width:88px; border-radius:50%; position:relative}
 .donutCenter{
@@ -369,7 +408,7 @@ details.expander[open] summary{margin-bottom:4px}
   <div class="tb-right">
     <button class="tb-chip" onclick="openSearch()" title="البحث في المصاريف">🔎</button>
     <button class="tb-chip" onclick="openChat()" title="محادثة بابا وماما" style="position:relative">💬<span class="chatBadge" id="chatBadge" style="display:none"></span></button>
-    <button class="tb-chip" onclick="logout()" title="تسجيل خروج"><img id="topAvatar" class="avatar-sm" alt=""><span id="loggedAs"></span> 🔓</button>
+    <button class="tb-chip" onclick="logout()" title="تسجيل خروج"><img id="topAvatar" class="avatar-sm" alt=""><span id="loggedAs"></span></button>
     <button class="tb-chip tb-sync" onclick="toggleSyncPanel()" title="المزامنة"><span class="dot" id="syncDot"></span>⚙️</button>
   </div>
 </div>
@@ -602,6 +641,13 @@ details.expander[open] summary{margin-bottom:4px}
 </div>
 
 <div class="toast" id="toastEl"></div>
+<div class="zeinaMascot" id="zeinaMascot">
+  <button class="zeinaAvatarBtn" id="zeinaAvatarBtn" onclick="tapZeina()" title="زينة" aria-label="زينة">
+    <img class="zeinaAvatarImg" src="zeina-avatar.jpg" alt="زينة">
+    <span class="zeinaHouseBadge">🏠</span>
+  </button>
+  <div class="zeinaBubble" id="zeinaBubble"></div>
+</div>
 <button class="fab" id="fabAdd" onclick="fabAddExpense()" title="إضافة مصروف" aria-label="إضافة مصروف">+</button>
 <div class="bottomnav" id="bottomNav">
   <button data-tab="home" onclick="showTab('home')"><span class="ic">💰</span>المصاريف</button>
@@ -1208,22 +1254,25 @@ const DAILY_MESSAGES = {
   ]
 };
 const CATEGORY_ICON = {advice:'💡', parenting:'👶', romantic:'❤️', religious:'🤲', joke:'😄'};
+// Pick a random item from `list` that hasn't been shown yet in the current
+// "cycle" (tracked in localStorage under `storageKey`), so nothing repeats
+// until everything else in the list has had a turn.
+function pickFromPool(list, storageKey){
+  let seen = [];
+  try { seen = JSON.parse(localStorage.getItem(storageKey) || '[]'); } catch(e){ seen = []; }
+  let remaining = list.map((_,i)=>i).filter(i=>!seen.includes(i));
+  if(!remaining.length){ remaining = list.map((_,i)=>i); seen = []; }
+  const idx = remaining[Math.floor(Math.random()*remaining.length)];
+  seen.push(idx);
+  localStorage.setItem(storageKey, JSON.stringify(seen));
+  return list[idx];
+}
 function pickSplashMessage(){
-  // Flatten all messages, then pick one that hasn't been shown yet in this
-  // "cycle" (tracked in localStorage), so the same message can't come up
-  // again until every other message has had a turn.
   const all = [];
   Object.keys(DAILY_MESSAGES).forEach(cat=>{
     DAILY_MESSAGES[cat].forEach(msg=>all.push({cat, msg}));
   });
-  let seen = [];
-  try { seen = JSON.parse(localStorage.getItem('zainah_splash_seen') || '[]'); } catch(e){ seen = []; }
-  let remaining = all.map((_,i)=>i).filter(i=>!seen.includes(i));
-  if(!remaining.length){ remaining = all.map((_,i)=>i); seen = []; }
-  const idx = remaining[Math.floor(Math.random()*remaining.length)];
-  seen.push(idx);
-  localStorage.setItem('zainah_splash_seen', JSON.stringify(seen));
-  return all[idx];
+  return pickFromPool(all, 'zainah_splash_seen');
 }
 function maybeShowDailySplash(){
   // Shows on every app open (login/relaunch) rather than once per day.
@@ -1241,6 +1290,66 @@ function dismissSplash(){
   clearTimeout(window._splashTimer);
   el.classList.add('fadeout');
   setTimeout(()=>{ el.style.display = 'none'; el.classList.remove('fadeout'); }, 400);
+  zeinaWelcome();
+}
+
+// ---- Zeina's floating mascot ----
+const ZEINA_WELCOME_MESSAGES = [
+  'أهلاً بيكم في بيت زينة! 🏡💕',
+  'ياااي رجعتوا! وحشتوني 🥰',
+  'يلا بينا نشوف فلوسنا النهاردة 😄',
+  'بابا، ماما، مستنياكم من بدري! 🎀',
+  'واو، زوروني كل يوم كده يا ريت 😍',
+  'يوم جديد يعني مصاريف جديدة، يلا بينا! 🧸',
+  'مبسوطة إنكم فتحتوا التطبيق بسرعة النهاردة ⭐',
+  'أهلين! حد جايب لي هدية النهاردة؟ 😄'
+];
+const ZEINA_CHAT_MESSAGES = [
+  'ادفعوا بس متنسوش تشتروا لعبة لزينة 🧸😉',
+  'لو الميزانية خلصت بدري... مش أنا اللي أخدت الفلوس 🙈',
+  'بابا يقول هوفر وبعدين يشتري حاجة تانية 😂',
+  'أنا زينة، وربنا يخليلي بيتي ده أد الدنيا 🏠💛',
+  'براافو للي وفروا الشهر ده 👏',
+  'لو زعلتوا من بعض، بوسة وسلام وخلاص 😘',
+  'متنسوش تحطوا فلوس في هدفي، عايزة لعبة جديدة 🎁',
+  'أنا بحب لما بابا وماما يتكلموا بلطف مع بعض 🥹',
+  'أنا بفكر في العيدية بس، مش شغلتي أنا 😴💰',
+  'كل يوم من غير خناق = يوم حلو عندي 🌸',
+  'إيه رأيكم نضيف تصنيف «حلاوة لزينة»؟ 😂',
+  'صحّيت من النوم عشان أتفرج عليكم بتضيفوا مصاريف 😆',
+  'يا بابا، يا ماما، حضنة واحدة وأنا بروح أنام 🥰',
+  'سؤال بريء: فين مصروف الآيس كريم بتاعي؟ 🍦'
+];
+function showZeinaBubble(text, autoHideMs){
+  const bubble = document.getElementById('zeinaBubble');
+  if(!bubble) return;
+  bubble.textContent = text;
+  bubble.classList.add('show');
+  clearTimeout(window._zeinaBubbleTimer);
+  if(autoHideMs){
+    window._zeinaBubbleTimer = setTimeout(()=>{ bubble.classList.remove('show'); }, autoHideMs);
+  }
+}
+function hideZeinaBubble(){
+  const bubble = document.getElementById('zeinaBubble');
+  if(bubble) bubble.classList.remove('show');
+  clearTimeout(window._zeinaBubbleTimer);
+}
+function tapZeina(){
+  const btn = document.getElementById('zeinaAvatarBtn');
+  if(btn){ btn.classList.remove('wiggle'); void btn.offsetWidth; btn.classList.add('wiggle'); }
+  const bubble = document.getElementById('zeinaBubble');
+  if(bubble && bubble.classList.contains('show')){
+    hideZeinaBubble();
+    return;
+  }
+  const msg = pickFromPool(ZEINA_CHAT_MESSAGES, 'zainah_zeina_chat_seen');
+  showZeinaBubble(msg, 6000);
+}
+function zeinaWelcome(){
+  if(document.getElementById('appScreen').style.display === 'none') return;
+  const msg = pickFromPool(ZEINA_WELCOME_MESSAGES, 'zainah_zeina_welcome_seen');
+  showZeinaBubble(msg, 4500);
 }
 
 // ---- Live gold price (XAU, 21K, SAR/gram) ----

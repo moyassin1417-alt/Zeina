@@ -1,13 +1,14 @@
 // بيت زينة — service worker: caches the app shell so it opens even with no
 // connection. Network-first for the page itself (so updates land right
 // away when online), falling back to the cache when offline.
-const CACHE_NAME = 'zeina-shell-v1';
+const CACHE_NAME = 'zeina-shell-v2';
 const SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './zeina-avatar.jpg'
 ];
 
 self.addEventListener('install', (event) => {
