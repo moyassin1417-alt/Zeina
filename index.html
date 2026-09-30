@@ -475,7 +475,6 @@ details.expander[open] summary{margin-bottom:4px}
     <details class="expander" style="margin-top:10px">
       <summary>🔁 المصاريف الثابتة الشهرية (<span id="recurringCount">0</span>)</summary>
       <div style="margin-top:8px">
-        <div class="sub" style="margin-bottom:6px">مصاريف بتتكرر كل شهر بنفس القيمة تقريبًا (إيجار، اشتراكات...) — سجّلها هنا مرة واحدة وبعدين ضيفها لأي شهر بضغطة واحدة</div>
         <div id="recurringList"></div>
         <div class="formrow" style="margin-top:8px">
           <select id="recCategory"></select>
@@ -1135,7 +1134,15 @@ const DAILY_MESSAGES = {
     'الاستماع لبعض أهم من إن حد يكون صح.',
     'بيت فيه احترام، مش بيت فيه صوت عالي.',
     'الدعم في اللحظات الصعبة بيتفتكر أكتر من أي هدية.',
-    'كل يوم فيه فرصة جديدة تبدأوا فيها صفحة.'
+    'كل يوم فيه فرصة جديدة تبدأوا فيها صفحة.',
+    'اسمعوا بعض من غير ما تقاطعوا — نص المشكلة بتتحل بس بالإنصات.',
+    'مصروف صغير على راحة بالكم مش رفاهية، ده استثمار في بيتكم.',
+    'خدوا وقت لنفسكم كل أسبوع، البيت بيحتاج أبطال مرتاحين.',
+    'الامتنان لبعض بيخلي أي مجهود يستاهل.',
+    'مفيش بيت مثالي، فيه بس بيت بيحاول كل يوم أحسن من اللي فات.',
+    'الاتفاق على الميزانية سوا بيقلل الخلافات قبل ما تحصل.',
+    'شوية مرونة في الخطط بتفرق كتير وقت الضغط.',
+    'خدتوا قرار كبير؟ ناموا عليه ليلة قبل ما تمضوه.'
   ],
   parenting: [
     'الطفل بيتعلم من اللي بيشوفه، مش بس من اللي بتقوله له.',
@@ -1144,7 +1151,15 @@ const DAILY_MESSAGES = {
     'وقتك مع زينة دلوقتي هو اللي هيبني ذكرياتها بكرة.',
     'كل مرحلة بتعدي بسرعة — استمتعوا بيها.',
     'الصبر مع الأطفال مهارة بتتعلم، مش صفة بتتولد بيها.',
-    'قراءة قصة قبل النوم بتفرق أكتر مما تتخيلوا في نمو عقل طفلك.'
+    'قراءة قصة قبل النوم بتفرق أكتر مما تتخيلوا في نمو عقل طفلك.',
+    'اسأل ابنك «عملت إيه النهاردة اللي عجبك؟» بدل «عملت واجبك؟»',
+    'الثبات في القواعد أهم من عددها.',
+    'مدح المجهود مش بس النتيجة بيبني ثقة حقيقية.',
+    'وقت اللعب مش مضيعة وقت، ده تعليم.',
+    'اعتذر لطفلك لما تغلط، ده بيعلمه المسؤولية.',
+    'كل طفل ليه إيقاعه الخاص، متقارنوش.',
+    'الأمان العاطفي أهم هدية تقدروا تدّوها.',
+    'ابتسامة الصبح بتحدد شكل يوم طفلك كله.'
   ],
   romantic: [
     'بابا وماما... النهاردة كمان، أنتم فريق واحد.',
@@ -1152,7 +1167,14 @@ const DAILY_MESSAGES = {
     'قول لشريكك كلمة حلوة النهاردة من غير أي مناسبة.',
     'أجمل حب هو اللي بيكبر بهدوء كل يوم.',
     'مسكوا إيد بعض شوية النهاردة، حتى من غير سبب.',
-    'الشراكة الحقيقية بتبان في التفاصيل الصغيرة.'
+    'الشراكة الحقيقية بتبان في التفاصيل الصغيرة.',
+    'اسأل شريكك «يومك كان عامل إيه؟» وسمعه باهتمام.',
+    'التفاصيل الصغيرة زي فنجان قهوة بتفرق كتير.',
+    'اختلفتوا؟ عادي، المهم ترجعوا لبعض بسرعة.',
+    'قدّروا وقت بعض، كل واحد له مساحته.',
+    'كلمة «معلش» بتحل نص خناقات الدنيا.',
+    'احتفلوا بالإنجازات الصغيرة زي الكبيرة.',
+    'ثقة بعض هي أساس أي بيت قوي.'
   ],
   religious: [
     'اللهم بارك لنا في بيتنا وأهلنا وذريتنا.',
@@ -1162,7 +1184,13 @@ const DAILY_MESSAGES = {
     'اللهم ارزقنا القناعة وبارك لنا فيما رزقتنا.',
     'اللهم احفظ زينة وارزقها الصحة والعافية.',
     'لا حول ولا قوة إلا بالله.',
-    'اللهم اجعلنا من الشاكرين لنعمك.'
+    'اللهم اجعلنا من الشاكرين لنعمك.',
+    'رَبَّنَا هَبْ لَنَا مِنْ أَزْوَاجِنَا وَذُرِّيَّاتِنَا قُرَّةَ أَعْيُنٍ.',
+    'اللهم اجعل بيتنا مليء بالمحبة والتراحم.',
+    'اللهم اكفنا بحلالك عن حرامك وأغننا بفضلك عمن سواك.',
+    'ربِّ اجعلني مقيم الصلاة ومن ذريتي.',
+    'اللهم إنا نسألك رزقًا واسعًا حلالًا طيبًا.',
+    'الحمد لله الذي بنعمته تتم الصالحات.'
   ],
   joke: [
     'قاعدة بيت زينة: مين ما يقفلش تاب المصاريف بعد الإضافة... يدفع القهوة! ☕😄',
@@ -1170,18 +1198,38 @@ const DAILY_MESSAGES = {
     'تحذير: كتابة «أخرى» في كل مصروف ممنوعة عرفًا في بيت زينة 😂',
     'الذهب بيزيد سعره كل يوم إلا محفظتنا 😄',
     'بابا: أنا اقتصادي. ماما: التطبيق بيقول العكس 😆',
-    'لو حد سألك «فين فلوسك؟» وريله التطبيق واسكت 😎'
+    'لو حد سألك «فين فلوسك؟» وريله التطبيق واسكت 😎',
+    'لو التطبيق سألك «متأكد؟» يبقى إنت هتندم فعلاً 😂',
+    'أكتر تصنيف بيتهرب منه الكل: «أخرى» يعني مصيبة كبيرة 😄',
+    'لو الميزانية زودت... إحنا مش بنضيف مصروف، إحنا بنستثمر في السعادة 😎',
+    'بيت زينة: المكان الوحيد اللي بابا وماما بيتفقوا فيه على حاجة واحدة... إن الفلوس بتخلص بسرعة 😅',
+    'زر «حذف» أخطر زرار في التطبيق، فكروا كويس قبل ما تدوسوه 😆',
+    'لو حد قالك «هنوفر الشهر ده»... ده غالبًا بيهزر 😂'
   ]
 };
 const CATEGORY_ICON = {advice:'💡', parenting:'👶', romantic:'❤️', religious:'🤲', joke:'😄'};
+function pickSplashMessage(){
+  // Flatten all messages, then pick one that hasn't been shown yet in this
+  // "cycle" (tracked in localStorage), so the same message can't come up
+  // again until every other message has had a turn.
+  const all = [];
+  Object.keys(DAILY_MESSAGES).forEach(cat=>{
+    DAILY_MESSAGES[cat].forEach(msg=>all.push({cat, msg}));
+  });
+  let seen = [];
+  try { seen = JSON.parse(localStorage.getItem('zainah_splash_seen') || '[]'); } catch(e){ seen = []; }
+  let remaining = all.map((_,i)=>i).filter(i=>!seen.includes(i));
+  if(!remaining.length){ remaining = all.map((_,i)=>i); seen = []; }
+  const idx = remaining[Math.floor(Math.random()*remaining.length)];
+  seen.push(idx);
+  localStorage.setItem('zainah_splash_seen', JSON.stringify(seen));
+  return all[idx];
+}
 function maybeShowDailySplash(){
   // Shows on every app open (login/relaunch) rather than once per day.
-  const cats = Object.keys(DAILY_MESSAGES);
-  const cat = cats[Math.floor(Math.random()*cats.length)];
-  const list = DAILY_MESSAGES[cat];
-  const msg = list[Math.floor(Math.random()*list.length)];
-  document.getElementById('splashIcon').textContent = CATEGORY_ICON[cat];
-  document.getElementById('splashMsg').textContent = msg;
+  const picked = pickSplashMessage();
+  document.getElementById('splashIcon').textContent = CATEGORY_ICON[picked.cat];
+  document.getElementById('splashMsg').textContent = picked.msg;
   const el = document.getElementById('splashOverlay');
   el.style.display = 'flex';
   clearTimeout(window._splashTimer);
