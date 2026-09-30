@@ -1045,7 +1045,7 @@ function showPrompt(message, defaultValue='', opts={}){
   });
 }
 /** Custom in-app two-field editor (name + value) — used for renaming/re-valuing an asset or liability. */
-function showEditNameValue(message, name, value){
+function showEditNameValue(message, name, value, valuePlaceholder){
   return new Promise(resolve=>{
     const overlay = document.getElementById('modalOverlay');
     const iconEl = document.getElementById('modalIcon');
@@ -1058,7 +1058,7 @@ function showEditNameValue(message, name, value){
     iconEl.style.display = 'block'; iconEl.textContent = '✎';
     msgEl.textContent = message;
     inputEl.style.display = 'block'; inputEl.type = 'text'; inputEl.placeholder = 'الاسم'; inputEl.value = name;
-    input2El.style.display = 'block'; input2El.type = 'number'; input2El.placeholder = 'القيمة بالريال'; input2El.value = value;
+    input2El.style.display = 'block'; input2El.type = 'number'; input2El.placeholder = valuePlaceholder || 'القيمة بالريال'; input2El.value = value;
     cancelBtn.style.display = 'block';
     okBtn.textContent = 'حفظ'; okBtn.className = 'mbOk';
     overlay.classList.add('show');
@@ -1705,9 +1705,22 @@ function renderGold(){
         <div class="name">${escapeHtml(g.name)}</div>
         <div class="note">${g.weight} جم${val?' · '+fmt(val):''}</div>
       </div>
+      <button class="edit" onclick="editGoldItem('${g.id}')">✎</button>
       <button class="del" onclick="removeItem('gold','${g.id}')">✕</button>
     </div>`;
   }).join('');
+}
+async function editGoldItem(id){
+  const item = state.gold.find(g=>g.id===id);
+  if(!item) return;
+  const result = await showEditNameValue('تعديل قطعة الذهب (الاسم والوزن)', item.name, item.weight, 'الوزن بالجرام');
+  if(!result) return;
+  if(!result.name){ await showAlert('اكتب اسمًا صحيحًا'); return; }
+  const weight = Number(result.value);
+  if(isNaN(weight) || weight <= 0){ await showAlert('وزن غير صحيح'); return; }
+  item.name = result.name;
+  item.weight = weight;
+  saveState(); render();
 }
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
