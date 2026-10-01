@@ -50,6 +50,46 @@ body{
   box-shadow:0 4px 14px rgba(0,0,0,.28); cursor:pointer;
 }
 .fab:active{opacity:.85}
+.fabCalc{
+  position:fixed; bottom:140px; inset-inline-end:20px; z-index:60;
+  width:46px; height:46px; border-radius:50%; border:1px solid var(--line);
+  background:var(--card); color:var(--ink); font-size:1.25rem;
+  box-shadow:0 4px 14px rgba(0,0,0,.2); cursor:pointer;
+}
+.fabCalc:active{opacity:.8}
+.calcOverlay{
+  position:fixed; inset:0; z-index:326; display:flex; align-items:flex-end; justify-content:center;
+  background:rgba(0,0,0,.5); padding:0;
+  opacity:0; pointer-events:none; transition:opacity .18s;
+}
+.calcOverlay.show{opacity:1; pointer-events:auto}
+.calcSheet{
+  background:var(--card); color:var(--ink); width:100%; max-width:420px;
+  border-radius:18px 18px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 30px rgba(0,0,0,.3); transform:translateY(16px); transition:transform .18s;
+}
+.calcOverlay.show .calcSheet{transform:translateY(0)}
+@media (min-width:480px){
+  .calcOverlay{align-items:center}
+  .calcSheet{border-radius:16px; transform:translateY(0) scale(.96)}
+  .calcOverlay.show .calcSheet{transform:translateY(0) scale(1)}
+}
+.calcHeader{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px}
+.calcDisplay{
+  background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:16px 14px;
+  font-size:1.8rem; font-weight:700; text-align:left; direction:ltr; margin-bottom:12px;
+  overflow-x:auto; white-space:nowrap;
+}
+.calcGrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+.calcBtn{
+  background:var(--bg); border:1px solid var(--line); color:var(--ink); border-radius:12px;
+  padding:16px 0; font-size:1.15rem; font-weight:600; cursor:pointer;
+}
+.calcBtn:active{opacity:.7}
+.calcOp{background:var(--card); color:var(--sub)}
+.calcAccent{background:var(--accent); color:#fff; border-color:var(--accent)}
+.calcZero{grid-column:span 2}
+.calcEquals{background:var(--accent2); color:#fff; border-color:var(--accent2); grid-column:span 2}
 .zeinaMascot{
   position:fixed; bottom:78px; inset-inline-start:14px; z-index:65;
   display:flex; flex-direction:column-reverse; align-items:flex-start; gap:8px; max-width:210px;
@@ -649,7 +689,42 @@ details.expander[open] summary{margin-bottom:4px}
   </button>
   <div class="zeinaBubble" id="zeinaBubble"></div>
 </div>
+<button class="fabCalc" id="fabCalc" onclick="openCalculator()" title="الآلة الحاسبة" aria-label="الآلة الحاسبة">🧮</button>
 <button class="fab" id="fabAdd" onclick="fabAddExpense()" title="إضافة مصروف" aria-label="إضافة مصروف">+</button>
+<div id="calcOverlay" class="calcOverlay" onclick="if(event.target===this) closeCalculator()">
+  <div class="calcSheet">
+    <div class="calcHeader">
+      <div style="font-weight:700">🧮 الآلة الحاسبة</div>
+      <button class="tb-chip" onclick="closeCalculator()" title="إغلاق">✕</button>
+    </div>
+    <div class="calcDisplay" id="calcDisplay">0</div>
+    <div class="calcGrid">
+      <button class="calcBtn calcOp" onclick="calcClear()">C</button>
+      <button class="calcBtn calcOp" onclick="calcToggleSign()">±</button>
+      <button class="calcBtn calcOp" onclick="calcPercent()">%</button>
+      <button class="calcBtn calcOp calcAccent" onclick="calcOperator('÷')">÷</button>
+
+      <button class="calcBtn" onclick="calcDigit('7')">7</button>
+      <button class="calcBtn" onclick="calcDigit('8')">8</button>
+      <button class="calcBtn" onclick="calcDigit('9')">9</button>
+      <button class="calcBtn calcOp calcAccent" onclick="calcOperator('×')">×</button>
+
+      <button class="calcBtn" onclick="calcDigit('4')">4</button>
+      <button class="calcBtn" onclick="calcDigit('5')">5</button>
+      <button class="calcBtn" onclick="calcDigit('6')">6</button>
+      <button class="calcBtn calcOp calcAccent" onclick="calcOperator('-')">−</button>
+
+      <button class="calcBtn" onclick="calcDigit('1')">1</button>
+      <button class="calcBtn" onclick="calcDigit('2')">2</button>
+      <button class="calcBtn" onclick="calcDigit('3')">3</button>
+      <button class="calcBtn calcOp calcAccent" onclick="calcOperator('+')">+</button>
+
+      <button class="calcBtn calcZero" onclick="calcDigit('0')">0</button>
+      <button class="calcBtn" onclick="calcDot()">.</button>
+      <button class="calcBtn calcEquals" onclick="calcEquals()">=</button>
+    </div>
+  </div>
+</div>
 <div class="bottomnav" id="bottomNav">
   <button data-tab="home" onclick="showTab('home')"><span class="ic">💰</span>المصاريف</button>
   <button data-tab="liabilities" onclick="showTab('liabilities')"><span class="ic">🏦</span>الالتزامات</button>
@@ -1052,6 +1127,95 @@ function triggerUndo(){
 
 function closeModal(){
   document.getElementById('modalOverlay').classList.remove('show');
+}
+
+// ---- Floating calculator ----
+let calcState = { display:'0', prevValue:null, operator:null, waitingForOperand:false };
+function calcRender(){
+  const el = document.getElementById('calcDisplay');
+  if(el) el.textContent = calcState.display;
+}
+function openCalculator(){
+  document.getElementById('calcOverlay').classList.add('show');
+}
+function closeCalculator(){
+  document.getElementById('calcOverlay').classList.remove('show');
+}
+function calcDigit(d){
+  if(calcState.display === 'خطأ'){ calcState.display = '0'; calcState.waitingForOperand = false; }
+  if(calcState.waitingForOperand){
+    calcState.display = d;
+    calcState.waitingForOperand = false;
+  } else {
+    calcState.display = (calcState.display === '0') ? d : calcState.display + d;
+  }
+  calcRender();
+}
+function calcDot(){
+  if(calcState.display === 'خطأ'){ calcState.display = '0'; calcState.waitingForOperand = false; }
+  if(calcState.waitingForOperand){
+    calcState.display = '0.';
+    calcState.waitingForOperand = false;
+  } else if(!calcState.display.includes('.')){
+    calcState.display += '.';
+  }
+  calcRender();
+}
+function calcClear(){
+  calcState = { display:'0', prevValue:null, operator:null, waitingForOperand:false };
+  calcRender();
+}
+function calcToggleSign(){
+  if(calcState.display === '0' || calcState.display === 'خطأ') return;
+  calcState.display = calcState.display.startsWith('-') ? calcState.display.slice(1) : '-' + calcState.display;
+  calcRender();
+}
+function calcPercent(){
+  calcState.display = calcFormatResult(Number(calcState.display) / 100);
+  calcRender();
+}
+function calcCompute(a, b, op){
+  switch(op){
+    case '+': return a + b;
+    case '-': return a - b;
+    case '×': return a * b;
+    case '÷': return b === 0 ? NaN : a / b;
+    default: return b;
+  }
+}
+function calcFormatResult(n){
+  if(isNaN(n) || !isFinite(n)) return 'خطأ';
+  let s = Number(n.toFixed(8)).toString();
+  if(s.replace('-','').replace('.','').length > 12) s = Number(n.toPrecision(10)).toString();
+  return s;
+}
+function calcOperator(nextOp){
+  const inputValue = Number(calcState.display);
+  if(calcState.operator && calcState.waitingForOperand){
+    calcState.operator = nextOp;
+    return;
+  }
+  if(calcState.prevValue === null){
+    calcState.prevValue = inputValue;
+  } else if(calcState.operator){
+    const result = calcCompute(calcState.prevValue, inputValue, calcState.operator);
+    calcState.display = calcFormatResult(result);
+    calcState.prevValue = (result==='خطأ') ? null : result;
+  }
+  calcState.waitingForOperand = true;
+  calcState.operator = nextOp;
+  calcRender();
+}
+function calcEquals(){
+  const inputValue = Number(calcState.display);
+  if(calcState.operator !== null && calcState.prevValue !== null){
+    const result = calcCompute(calcState.prevValue, inputValue, calcState.operator);
+    calcState.display = calcFormatResult(result);
+    calcState.prevValue = null;
+    calcState.operator = null;
+    calcState.waitingForOperand = true;
+    calcRender();
+  }
 }
 function openImageViewer(src){
   if(!src) return;
