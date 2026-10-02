@@ -763,6 +763,9 @@ details.expander[open] summary{margin-bottom:4px}
 <script>
 const STORE_KEY = 'zainah_data_v1';
 let state = loadState();
+// persist immediately so one-time migrations inside normalizeState (e.g. the gold history bulk-load)
+// don't silently re-run on the next reload before anything else triggers a save
+try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
 
 function normalizeState(s){
   if(!s || typeof s !== 'object') s = {};
@@ -776,6 +779,27 @@ function normalizeState(s){
   // migrate: gold buy/sell operations used to auto-create income entries affecting the budget; now kept fully separate
   s.income = s.income.filter(i => !i.goldHistoryId);
   if(!Array.isArray(s.goldHistory)) s.goldHistory = [];
+  // one-time: replace whatever gold buy/sell log exists with the real historical transactions
+  // (only for an account already in real use — never fabricate history into a brand-new/empty state)
+  const looksLikeRealAccount = (s.expenses && s.expenses.length) || (s.assets && s.assets.length) || (s.budgets && Object.keys(s.budgets).length) || (s.gold && s.gold.length) || (s.goldHistory && s.goldHistory.length);
+  if(!s._goldHistoryBulkV1 && looksLikeRealAccount){
+    const mkId = (i) => 'ghb_' + Date.now().toString(36) + i + Math.random().toString(36).slice(2,6);
+    const today = new Date().toISOString().slice(0,10);
+    s.goldHistory = [
+      { id: mkId(0), type:'sell', name:'قطعة مباعة', weight:13.1, saleAmount:6200, amount:6200, costBasis:null, gain:null, user:'بابا', date: today },
+      { id: mkId(1), type:'sell', name:'قطعة مباعة', weight:12.3, saleAmount:5800, amount:5800, costBasis:null, gain:null, user:'بابا', date: today },
+      { id: mkId(2), type:'sell', name:'قطعة مباعة', weight:15.30, saleAmount:7180, amount:7180, costBasis:null, gain:null, user:'بابا', date: today },
+      { id: mkId(3), type:'buy', name:'قطعة مشتراة', weight:4.06, amount:1942, user:'بابا', date: today },
+      { id: mkId(4), type:'sell', name:'قطعة مباعة', weight:4.06, saleAmount:1925, amount:1925, costBasis:1942, gain:-17, user:'بابا', date: today },
+      { id: mkId(5), type:'buy', name:'قطعتين (١٧.٢٤ + ٢.٧٩ جم)', weight:20.03, amount:9223, user:'بابا', date: today },
+      { id: mkId(6), type:'buy', name:'قطعة مشتراة', weight:23.11, amount:10975, user:'بابا', date: today },
+      { id: mkId(7), type:'sell', name:'قطعة مباعة', weight:22.96, saleAmount:10349, amount:10349, costBasis:null, gain:null, user:'بابا', date: today },
+      { id: mkId(8), type:'sell', name:'قطعة مباعة', weight:9.5, saleAmount:4290, amount:4290, costBasis:null, gain:null, user:'بابا', date: today },
+      { id: mkId(9), type:'buy', name:'قطعة مشتراة', weight:21.66, amount:9725, user:'بابا', date: today },
+      { id: mkId(10), type:'buy', name:'قطعة مشتراة', weight:14.95, amount:6725, user:'بابا', date: today }
+    ];
+    s._goldHistoryBulkV1 = true;
+  }
   if(typeof s.zakatCash !== 'number' || isNaN(s.zakatCash)) s.zakatCash = 0;
   if(!Array.isArray(s.messages)) s.messages = [];
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
@@ -2145,7 +2169,11 @@ function goldItemValue(g){
 }
 function renderGold(){
   const el = document.getElementById('goldList');
-  if(!state.gold.length){ el.innerHTML = '<div class="empty">لا توجد قطع ذهب بعد</div>'; return; }
+  if(!state.gold.length){
+    el.innerHTML = '<div class="empty">لا توجد قطع ذهب بعد</div>';
+    renderGoldHistory();
+    return;
+  }
   el.innerHTML = state.gold.slice().reverse().map(g=>{
     const val = goldItemValue(g);
     let gainNote = '';
@@ -2179,25 +2207,32 @@ function renderGoldHistory(){
   }
   const sells = state.goldHistory.filter(h=>h.type!=='buy');
   const buys = state.goldHistory.filter(h=>h.type==='buy');
-  const totalGain = sells.reduce((s,h)=>s+Number(h.gain||0),0);
+  const knownSells = sells.filter(h=>h.costBasis!=null && h.gain!=null);
+  const unknownSellsCount = sells.length - knownSells.length;
+  const totalGain = knownSells.reduce((s,h)=>s+Number(h.gain||0),0);
   const totalSpent = buys.reduce((s,h)=>s+Number(h.amount||0),0);
   const net = totalGain - totalSpent;
-  totalEl.innerHTML = `${net>=0?'صافي ربح':'صافي خسارة'}: <span style="color:${net>=0?'var(--accent2)':'var(--danger)'}">${fmt(Math.abs(net))}</span>`;
+  let totalHtml = `${net>=0?'صافي ربح':'صافي خسارة'}: <span style="color:${net>=0?'var(--accent2)':'var(--danger)'}">${fmt(Math.abs(net))}</span>`;
+  if(unknownSellsCount) totalHtml += ` <span style="opacity:.7">(${unknownSellsCount} عملية بيع بدون تكلفة شراء مسجّلة، مش محسوبة في الصافي)</span>`;
+  totalEl.innerHTML = totalHtml;
   listEl.innerHTML = state.goldHistory.slice().reverse().map(h=>{
     if(h.type === 'buy'){
       return `
       <div class="row">
-        <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · شراء</div></div>
+        <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · شراء${h.weight?' · '+h.weight+' جم':''}</div></div>
         <div class="amt" style="color:var(--danger)">-${fmt(h.amount)}</div>
         <button class="edit" onclick="editGoldHistoryEntry('${h.id}')">✎</button>
         <button class="del" onclick="deleteGoldHistoryEntry('${h.id}')">✕</button>
       </div>`;
     }
-    const sign = h.gain>=0 ? '+' : '';
+    const known = h.costBasis!=null && h.gain!=null;
+    const sign = known && h.gain>=0 ? '+' : '';
+    const amtHtml = known ? `${sign}${fmt(h.gain)}` : `<span style="opacity:.7">بدون تكلفة</span>`;
+    const amtColor = known ? (h.gain>=0?'var(--accent2)':'var(--danger)') : 'var(--sub)';
     return `
     <div class="row">
-      <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · بيع بـ${fmt(h.saleAmount)}</div></div>
-      <div class="amt" style="color:${h.gain>=0?'var(--accent2)':'var(--danger)'}">${sign}${fmt(h.gain)}</div>
+      <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · بيع بـ${fmt(h.saleAmount)}${h.weight?' · '+h.weight+' جم':''}</div></div>
+      <div class="amt" style="color:${amtColor}">${amtHtml}</div>
       <button class="edit" onclick="editGoldHistoryEntry('${h.id}')">✎</button>
       <button class="del" onclick="deleteGoldHistoryEntry('${h.id}')">✕</button>
     </div>`;
@@ -2215,13 +2250,22 @@ async function editGoldHistoryEntry(id){
     const item = state.gold.find(g=>g.id===h.goldId);
     if(item) item.costBasis = newAmount;
   } else {
+    let newCostBasis = h.costBasis;
+    if(newCostBasis == null){
+      const costRaw = await showPrompt(`سعر شراء "${h.name}" مش مسجّل — تحب تضيفه؟ (سيبها فاضية لو مش عارف)`, '', {inputType:'number', icon:'🧾', okText:'التالي'});
+      if(costRaw !== null && costRaw.trim() !== ''){
+        const cb = Number(costRaw);
+        if(!isNaN(cb) && cb >= 0) newCostBasis = cb;
+      }
+    }
     const raw = await showPrompt(`عدّل مبلغ بيع "${h.name}":`, String(h.saleAmount), {inputType:'number', icon:'💰', okText:'حفظ'});
     if(raw === null) return;
     const newAmount = Number(raw);
     if(isNaN(newAmount) || newAmount < 0){ await showAlert('قيمة غير صحيحة'); return; }
     h.saleAmount = newAmount;
     h.amount = newAmount;
-    h.gain = newAmount - Number(h.costBasis||0);
+    h.costBasis = newCostBasis;
+    h.gain = (newCostBasis != null) ? (newAmount - Number(newCostBasis)) : null;
   }
   saveState(); render();
   showToast('تم تحديث القيد');
