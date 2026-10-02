@@ -638,11 +638,13 @@ details.expander[open] summary{margin-bottom:4px}
   </div>
   <div class="formrow">
     <button class="add" id="goldSubmitBtn" style="flex:1" onclick="addGold()">إضافة القطعة</button>
+    <button class="add" id="goldBuyBtn" style="flex:1; background:var(--accent2)" onclick="buyGoldItem()">🛒 شراء</button>
   </div>
+  <div class="sub" id="goldBuyHint" style="margin-top:4px">"إضافة القطعة" تسجيل بيانات فقط بدون أثر على ميزانية الشهر، أما "شراء" فيخصم سعر الشراء من دخل الشهر تلقائيًا</div>
   <button class="add" id="goldCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditGold()">إلغاء التعديل</button>
 
   <details class="expander" id="goldHistoryDetails" style="margin-top:14px">
-    <summary>📜 سجل بيع الذهب — <span id="goldHistoryTotal">لا توجد عمليات بيع بعد</span></summary>
+    <summary>📜 سجل بيع وشراء الذهب — <span id="goldHistoryTotal">لا توجد عمليات بعد</span></summary>
     <div style="margin-top:8px">
       <div id="goldHistoryList"></div>
     </div>
@@ -1112,10 +1114,12 @@ function addIncome(){
   showToast('تمت إضافة الدخل، وزادت ميزانية الشهر تلقائيًا');
 }
 function incomeRowHtml(inc){
+  const amt = Number(inc.amount||0);
+  const neg = amt < 0;
   return `
   <div class="row">
     <div><div class="name">${escapeHtml(inc.name || 'دخل إضافي')}</div><div class="note"><span class="userdot" style="background:${userColor(inc.user)}"></span>${escapeHtml(inc.user||'')} · ${formatExpenseDate(inc.date)}</div></div>
-    <div class="amt" style="color:var(--accent2)">+${fmt(inc.amount)}</div>
+    <div class="amt" style="color:${neg?'var(--danger)':'var(--accent2)'}">${neg?'-':'+'}${fmt(Math.abs(amt))}</div>
     <button class="del" onclick="removeItem('income','${inc.id}')">✕</button>
   </div>`;
 }
@@ -1949,8 +1953,10 @@ function render(){
   const isOver = expTotal>monthBudget && monthBudget>0;
   const isWarn = !isOver && monthBudget>0 && (expTotal/monthBudget)>=0.8;
   document.getElementById('budgetBar').className = 'budgetbar' + (isOver ? ' over' : isWarn ? ' warn' : '');
+  const incomeNote = monthIncome > 0 ? ` (شاملة دخل إضافي ${fmt(monthIncome)})`
+    : monthIncome < 0 ? ` (بعد خصم ${fmt(Math.abs(monthIncome))} مشتريات)` : '';
   document.getElementById('budgetText').textContent = monthBudget
-    ? `صُرف ${fmt(expTotal)} ومتبقي ${fmt(remaining)}` + (monthIncome ? ` (شاملة دخل إضافي ${fmt(monthIncome)})` : '') + (isWarn ? ' — اقتربت من حد الميزانية ⚠️' : '')
+    ? `صُرف ${fmt(expTotal)} ومتبقي ${fmt(remaining)}` + incomeNote + (isWarn ? ' — اقتربت من حد الميزانية ⚠️' : '')
     : 'لم تُحدد ميزانية لهذا الشهر بعد';
   renderIncome();
 
@@ -2165,13 +2171,26 @@ function renderGoldHistory(){
   const listEl = document.getElementById('goldHistoryList');
   if(!totalEl || !listEl) return;
   if(!state.goldHistory.length){
-    totalEl.textContent = 'لا توجد عمليات بيع بعد';
-    listEl.innerHTML = '<div class="empty">لا توجد عمليات بيع بعد</div>';
+    totalEl.textContent = 'لا توجد عمليات بعد';
+    listEl.innerHTML = '<div class="empty">لا توجد عمليات بيع أو شراء بعد</div>';
     return;
   }
-  const totalGain = state.goldHistory.reduce((s,h)=>s+Number(h.gain||0),0);
-  totalEl.innerHTML = `إجمالي ${totalGain>=0?'الربح':'الخسارة'}: <span style="color:${totalGain>=0?'var(--accent2)':'var(--danger)'}">${fmt(Math.abs(totalGain))}</span>`;
+  const sells = state.goldHistory.filter(h=>h.type!=='buy');
+  const buys = state.goldHistory.filter(h=>h.type==='buy');
+  const totalGain = sells.reduce((s,h)=>s+Number(h.gain||0),0);
+  const totalSpent = buys.reduce((s,h)=>s+Number(h.amount||0),0);
+  const parts = [];
+  if(sells.length) parts.push(`${totalGain>=0?'ربح':'خسارة'} البيع: <span style="color:${totalGain>=0?'var(--accent2)':'var(--danger)'}">${fmt(Math.abs(totalGain))}</span>`);
+  if(buys.length) parts.push(`إجمالي الشراء: <span style="color:var(--danger)">${fmt(totalSpent)}</span>`);
+  totalEl.innerHTML = parts.join(' · ');
   listEl.innerHTML = state.goldHistory.slice().reverse().map(h=>{
+    if(h.type === 'buy'){
+      return `
+      <div class="row">
+        <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · شراء</div></div>
+        <div class="amt" style="color:var(--danger)">-${fmt(h.amount)}</div>
+      </div>`;
+    }
     const sign = h.gain>=0 ? '+' : '';
     return `
     <div class="row">
@@ -2192,6 +2211,8 @@ function startEditGold(id){
   document.getElementById('goldCost').value = item.costBasis || '';
   document.getElementById('goldSubmitBtn').textContent = 'تحديث';
   document.getElementById('goldCancelBtn').style.display = 'block';
+  document.getElementById('goldBuyBtn').style.display = 'none';
+  document.getElementById('goldBuyHint').style.display = 'none';
   editingGoldImageCleared = false;
   editingGoldExistingImage = item.imageData || null;
   document.getElementById('goldFile').value = '';
@@ -2223,6 +2244,8 @@ function cancelEditGold(){
   document.getElementById('goldImagePreviewRow').style.display = 'none';
   document.getElementById('goldSubmitBtn').textContent = 'إضافة القطعة';
   document.getElementById('goldCancelBtn').style.display = 'none';
+  document.getElementById('goldBuyBtn').style.display = 'block';
+  document.getElementById('goldBuyHint').style.display = 'block';
 }
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
@@ -2817,8 +2840,45 @@ async function addGold(){
     editingGoldImageCleared = false;
     document.getElementById('goldSubmitBtn').textContent = 'إضافة القطعة';
     document.getElementById('goldCancelBtn').style.display = 'none';
+    document.getElementById('goldBuyBtn').style.display = 'block';
+    document.getElementById('goldBuyHint').style.display = 'block';
   }
   saveState(); render();
+}
+async function buyGoldItem(){
+  if(editingGoldId){ await showAlert('أنهِ التعديل الحالي أو ألغِه أولًا'); return; }
+  const nameEl = document.getElementById('goldName');
+  const weightEl = document.getElementById('goldWeight');
+  const costEl = document.getElementById('goldCost');
+  const fileEl = document.getElementById('goldFile');
+  const name = nameEl.value.trim();
+  const weight = Number(weightEl.value);
+  const cost = Number(costEl.value);
+  if(!name || !weight){ await showAlert('اكتب اسم القطعة والوزن'); return; }
+  if(!cost || cost <= 0){ await showAlert('اكتب سعر الشراء بالريال'); return; }
+  let imageData = null;
+  if(fileEl.files && fileEl.files[0]){
+    imageData = await compressImage(fileEl.files[0], 480, 0.7);
+  }
+  const newItem = {id:uid(), name, weight, value:0, imageData, costBasis:cost};
+  state.gold.push(newItem);
+  const today = new Date().toISOString().slice(0,10);
+  const historyEntry = { id:uid(), goldId:newItem.id, type:'buy', name, weight, amount:cost, user: window.currentUser||'أنا', date: today };
+  state.goldHistory.push(historyEntry);
+  const incomeEntry = { id:uid(), name:`شراء ذهب: ${name}`, amount: -cost, user: window.currentUser||'أنا', date: today, month: viewMonth, goldHistoryId: historyEntry.id };
+  state.income.push(incomeEntry);
+  nameEl.value=''; weightEl.value=''; costEl.value=''; fileEl.value='';
+  document.getElementById('goldImagePreviewRow').style.display = 'none';
+  saveState(); render();
+  showUndoToast(`تم تسجيل شراء "${name}" بمبلغ ${fmt(cost)}`, () => {
+    const gi = state.gold.findIndex(g=>g.id===newItem.id);
+    if(gi !== -1) state.gold.splice(gi,1);
+    const hi = state.goldHistory.findIndex(h=>h.id===historyEntry.id);
+    if(hi !== -1) state.goldHistory.splice(hi,1);
+    const ii = state.income.findIndex(i=>i.id===incomeEntry.id);
+    if(ii !== -1) state.income.splice(ii,1);
+    saveState(); render();
+  });
 }
 async function sellGoldItem(id){
   const item = state.gold.find(g=>g.id===id);
@@ -2842,7 +2902,7 @@ async function sellGoldItem(id){
   state.gold.splice(idx,1);
 
   const gain = saleAmount - Number(costBasis);
-  const historyEntry = { id:uid(), goldId:id, name:removedItem.name, weight:removedItem.weight, costBasis:Number(costBasis), saleAmount, gain, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10) };
+  const historyEntry = { id:uid(), goldId:id, type:'sell', name:removedItem.name, weight:removedItem.weight, costBasis:Number(costBasis), saleAmount, amount:saleAmount, gain, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10) };
   state.goldHistory.push(historyEntry);
 
   const incomeEntry = { id:uid(), name:`بيع ذهب: ${removedItem.name||'قطعة'}`, amount: saleAmount, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10), month: viewMonth, goldHistoryId: historyEntry.id };
