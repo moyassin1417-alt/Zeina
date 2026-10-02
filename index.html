@@ -506,6 +506,21 @@ details.expander[open] summary{margin-bottom:4px}
     </div>
     <div class="budgetbar" id="budgetBar"><div id="budgetFill" style="width:0%"></div></div>
     <div class="sub" id="budgetText" style="margin-top:8px; margin-bottom:0"></div>
+
+    <details class="expander" id="incomeDetails" style="margin-top:10px">
+      <summary>➕ دخل إضافي هذا الشهر (<span id="incomeCount">0</span>)</summary>
+      <div style="margin-top:8px">
+        <div class="sub" style="margin-bottom:6px">أي دخل تضيفه هنا بيزوّد ميزانية هذا الشهر تلقائيًا</div>
+        <div id="incomeList"></div>
+        <div class="formrow" style="margin-top:8px">
+          <input id="incomeVal" placeholder="المبلغ" type="number">
+          <input id="incomeName" placeholder="المصدر (اختياري)">
+        </div>
+        <div class="formrow">
+          <button class="add" style="flex:1" onclick="addIncome()">إضافة دخل</button>
+        </div>
+      </div>
+    </details>
   </div>
 
   <div class="panel">
@@ -745,6 +760,7 @@ function normalizeState(s){
   if(!Array.isArray(s.gold)) s.gold = [];
   if(!Array.isArray(s.recurring)) s.recurring = [];
   if(!Array.isArray(s.goals)) s.goals = [];
+  if(!Array.isArray(s.income)) s.income = [];
   if(typeof s.zakatCash !== 'number' || isNaN(s.zakatCash)) s.zakatCash = 0;
   if(!Array.isArray(s.messages)) s.messages = [];
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
@@ -1062,6 +1078,45 @@ function yearExpenses(year){
 }
 function monthTotal(ym){
   return state.expenses.filter(e=>expenseMonth(e)===ym).reduce((s,e)=>s+Number(e.amount||0),0);
+}
+function incomeMonth(inc){ return inc.month || (inc.date||'').slice(0,7); }
+function monthIncomeTotal(ym){
+  return state.income.filter(i=>incomeMonth(i)===ym).reduce((s,i)=>s+Number(i.amount||0),0);
+}
+function addIncome(){
+  const valEl = document.getElementById('incomeVal');
+  const nameEl = document.getElementById('incomeName');
+  const amount = Number(valEl.value);
+  if(!amount || amount<=0) return;
+  state.income.push({
+    id:uid(),
+    name: nameEl.value.trim(),
+    amount,
+    user: window.currentUser||'أنا',
+    date: new Date().toISOString().slice(0,10),
+    month: viewMonth
+  });
+  valEl.value=''; nameEl.value='';
+  saveState(); render();
+  showToast('تمت إضافة الدخل، وزادت ميزانية الشهر تلقائيًا');
+}
+function incomeRowHtml(inc){
+  return `
+  <div class="row">
+    <div><div class="name">${escapeHtml(inc.name || 'دخل إضافي')}</div><div class="note"><span class="userdot" style="background:${userColor(inc.user)}"></span>${escapeHtml(inc.user||'')} · ${formatExpenseDate(inc.date)}</div></div>
+    <div class="amt" style="color:var(--accent2)">+${fmt(inc.amount)}</div>
+    <button class="del" onclick="removeItem('income','${inc.id}')">✕</button>
+  </div>`;
+}
+function renderIncome(){
+  const countEl = document.getElementById('incomeCount');
+  const listEl = document.getElementById('incomeList');
+  if(!countEl || !listEl) return;
+  const monthIncome = state.income.filter(i=>incomeMonth(i)===viewMonth);
+  countEl.textContent = monthIncome.length;
+  listEl.innerHTML = monthIncome.length
+    ? monthIncome.slice().reverse().map(incomeRowHtml).join('')
+    : '<div class="empty">لا يوجد دخل إضافي مسجّل لهذا الشهر</div>';
 }
 
 let dirty = false;
@@ -1871,19 +1926,22 @@ function render(){
     compareEl.textContent = expTotal > 0 ? `لا توجد بيانات لشهر ${monthLabel(prevM)} للمقارنة` : '';
   }
 
-  const monthBudget = state.budgets[viewMonth] || 0;
+  const baseBudget = state.budgets[viewMonth] || 0;
+  const monthIncome = monthIncomeTotal(viewMonth);
+  const monthBudget = baseBudget + monthIncome;
   const remaining = monthBudget - expTotal;
   document.getElementById('remaining').textContent = fmt(remaining);
   document.getElementById('remaining').className = 'val ' + (remaining>=0?'pos':'neg');
-  document.getElementById('budgetVal').placeholder = monthBudget ? fmt(monthBudget) : 'ميزانية هذا الشهر بالريال';
+  document.getElementById('budgetVal').placeholder = baseBudget ? fmt(baseBudget) : 'ميزانية هذا الشهر بالريال';
   const pct = monthBudget ? Math.min(100, (expTotal/monthBudget)*100) : 0;
   document.getElementById('budgetFill').style.width = pct+'%';
   const isOver = expTotal>monthBudget && monthBudget>0;
   const isWarn = !isOver && monthBudget>0 && (expTotal/monthBudget)>=0.8;
   document.getElementById('budgetBar').className = 'budgetbar' + (isOver ? ' over' : isWarn ? ' warn' : '');
   document.getElementById('budgetText').textContent = monthBudget
-    ? `صُرف ${fmt(expTotal)} وكتبقي ${fmt(remaining)}` + (isWarn ? ' — اقتربت من حد الميزانية ⚠️' : '')
+    ? `صُرف ${fmt(expTotal)} وكتبقي ${fmt(remaining)}` + (monthIncome ? ` (شاملة دخل إضافي ${fmt(monthIncome)})` : '') + (isWarn ? ' — اقتربت من حد الميزانية ⚠️' : '')
     : 'لم تُحدد ميزانية لهذا الشهر بعد';
+  renderIncome();
 
   const up = document.getElementById('userPick');
   const avImg = window.userAvatarSrc ? `<img class="avatar-md" style="display:inline-block" src="${window.userAvatarSrc}">` : '';
@@ -2717,7 +2775,7 @@ async function addGold(){
   }
   saveState(); render();
 }
-const DELETE_UNDO_LABELS = { assets:'الأصل', liabilities:'الالتزام', expenses:'المصروف', gold:'القطعة' };
+const DELETE_UNDO_LABELS = { assets:'الأصل', liabilities:'الالتزام', expenses:'المصروف', gold:'القطعة', income:'الدخل الإضافي' };
 function removeItem(key,id){
   const idx = state[key].findIndex(i=>i.id===id);
   if(idx === -1) return;
