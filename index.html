@@ -2187,6 +2187,8 @@ function renderGoldHistory(){
       <div class="row">
         <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · شراء</div></div>
         <div class="amt" style="color:var(--danger)">-${fmt(h.amount)}</div>
+        <button class="edit" onclick="editGoldHistoryEntry('${h.id}')">✎</button>
+        <button class="del" onclick="deleteGoldHistoryEntry('${h.id}')">✕</button>
       </div>`;
     }
     const sign = h.gain>=0 ? '+' : '';
@@ -2194,8 +2196,78 @@ function renderGoldHistory(){
     <div class="row">
       <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · بيع بـ${fmt(h.saleAmount)}</div></div>
       <div class="amt" style="color:${h.gain>=0?'var(--accent2)':'var(--danger)'}">${sign}${fmt(h.gain)}</div>
+      <button class="edit" onclick="editGoldHistoryEntry('${h.id}')">✎</button>
+      <button class="del" onclick="deleteGoldHistoryEntry('${h.id}')">✕</button>
     </div>`;
   }).join('');
+}
+async function editGoldHistoryEntry(id){
+  const h = state.goldHistory.find(x=>x.id===id);
+  if(!h) return;
+  if(h.type === 'buy'){
+    const raw = await showPrompt(`عدّل مبلغ شراء "${h.name}":`, String(h.amount), {inputType:'number', icon:'🛒', okText:'حفظ'});
+    if(raw === null) return;
+    const newAmount = Number(raw);
+    if(isNaN(newAmount) || newAmount <= 0){ await showAlert('قيمة غير صحيحة'); return; }
+    h.amount = newAmount;
+    const item = state.gold.find(g=>g.id===h.goldId);
+    if(item) item.costBasis = newAmount;
+    const inc = state.income.find(i=>i.goldHistoryId===id);
+    if(inc) inc.amount = -newAmount;
+  } else {
+    const raw = await showPrompt(`عدّل مبلغ بيع "${h.name}":`, String(h.saleAmount), {inputType:'number', icon:'💰', okText:'حفظ'});
+    if(raw === null) return;
+    const newAmount = Number(raw);
+    if(isNaN(newAmount) || newAmount < 0){ await showAlert('قيمة غير صحيحة'); return; }
+    h.saleAmount = newAmount;
+    h.amount = newAmount;
+    h.gain = newAmount - Number(h.costBasis||0);
+    const inc = state.income.find(i=>i.goldHistoryId===id);
+    if(inc) inc.amount = newAmount;
+  }
+  saveState(); render();
+  showToast('تم تحديث القيد');
+}
+async function deleteGoldHistoryEntry(id){
+  const h = state.goldHistory.find(x=>x.id===id);
+  if(!h) return;
+  const ok = await showConfirm(
+    h.type === 'buy'
+      ? 'حذف عملية الشراء دي هيشيل القطعة المرتبطة بيها من قائمة الذهب ويلغي خصمها من دخل الشهر. متأكد؟'
+      : 'حذف عملية البيع دي هيرجّع القطعة تاني لقائمة الذهب ويلغي تسجيلها كدخل. متأكد؟',
+    {danger:true}
+  );
+  if(!ok) return;
+  const hIdx = state.goldHistory.findIndex(x=>x.id===id);
+  if(hIdx === -1) return;
+  const removedHistory = state.goldHistory[hIdx];
+  state.goldHistory.splice(hIdx,1);
+
+  let removedIncome = null, removedIncomeIdx = -1;
+  const iIdx = state.income.findIndex(i=>i.goldHistoryId===id);
+  if(iIdx !== -1){ removedIncome = state.income[iIdx]; removedIncomeIdx = iIdx; state.income.splice(iIdx,1); }
+
+  let removedGoldItem = null, removedGoldIdx = -1, restoredItem = null;
+  if(h.type === 'buy'){
+    const gIdx = state.gold.findIndex(g=>g.id===h.goldId);
+    if(gIdx !== -1){ removedGoldItem = state.gold[gIdx]; removedGoldIdx = gIdx; state.gold.splice(gIdx,1); }
+  } else {
+    restoredItem = { id: h.goldId || uid(), name: h.name, weight: h.weight, value:0, imageData: h.imageData||null, costBasis: Number(h.costBasis||0) };
+    state.gold.push(restoredItem);
+  }
+
+  saveState(); render();
+  showUndoToast(`تم حذف ${h.type==='buy'?'عملية الشراء':'عملية البيع'} من السجل`, () => {
+    state.goldHistory.splice(hIdx,0,removedHistory);
+    if(removedIncome) state.income.splice(removedIncomeIdx,0,removedIncome);
+    if(h.type === 'buy'){
+      if(removedGoldItem) state.gold.splice(removedGoldIdx,0,removedGoldItem);
+    } else if(restoredItem){
+      const gi = state.gold.findIndex(g=>g.id===restoredItem.id);
+      if(gi !== -1) state.gold.splice(gi,1);
+    }
+    saveState(); render();
+  });
 }
 let editingGoldId = null;
 let editingGoldExistingImage = null;
@@ -2861,7 +2933,7 @@ async function buyGoldItem(){
   const newItem = {id:uid(), name, weight, value:0, imageData, costBasis:cost};
   state.gold.push(newItem);
   const today = new Date().toISOString().slice(0,10);
-  const historyEntry = { id:uid(), goldId:newItem.id, type:'buy', name, weight, amount:cost, user: window.currentUser||'أنا', date: today };
+  const historyEntry = { id:uid(), goldId:newItem.id, type:'buy', name, weight, amount:cost, imageData, user: window.currentUser||'أنا', date: today };
   state.goldHistory.push(historyEntry);
   const incomeEntry = { id:uid(), name:`شراء ذهب: ${name}`, amount: -cost, user: window.currentUser||'أنا', date: today, month: viewMonth, goldHistoryId: historyEntry.id };
   state.income.push(incomeEntry);
@@ -2900,7 +2972,7 @@ async function sellGoldItem(id){
   state.gold.splice(idx,1);
 
   const gain = saleAmount - Number(costBasis);
-  const historyEntry = { id:uid(), goldId:id, type:'sell', name:removedItem.name, weight:removedItem.weight, costBasis:Number(costBasis), saleAmount, amount:saleAmount, gain, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10) };
+  const historyEntry = { id:uid(), goldId:id, type:'sell', name:removedItem.name, weight:removedItem.weight, imageData:removedItem.imageData||null, costBasis:Number(costBasis), saleAmount, amount:saleAmount, gain, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10) };
   state.goldHistory.push(historyEntry);
 
   const incomeEntry = { id:uid(), name:`بيع ذهب: ${removedItem.name||'قطعة'}`, amount: saleAmount, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10), month: viewMonth, goldHistoryId: historyEntry.id };
