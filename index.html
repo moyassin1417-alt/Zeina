@@ -2179,10 +2179,8 @@ function renderGoldHistory(){
   const buys = state.goldHistory.filter(h=>h.type==='buy');
   const totalGain = sells.reduce((s,h)=>s+Number(h.gain||0),0);
   const totalSpent = buys.reduce((s,h)=>s+Number(h.amount||0),0);
-  const parts = [];
-  if(sells.length) parts.push(`${totalGain>=0?'ربح':'خسارة'} البيع: <span style="color:${totalGain>=0?'var(--accent2)':'var(--danger)'}">${fmt(Math.abs(totalGain))}</span>`);
-  if(buys.length) parts.push(`إجمالي الشراء: <span style="color:var(--danger)">${fmt(totalSpent)}</span>`);
-  totalEl.innerHTML = parts.join(' · ');
+  const net = totalGain - totalSpent;
+  totalEl.innerHTML = `${net>=0?'صافي ربح':'صافي خسارة'}: <span style="color:${net>=0?'var(--accent2)':'var(--danger)'}">${fmt(Math.abs(net))}</span>`;
   listEl.innerHTML = state.goldHistory.slice().reverse().map(h=>{
     if(h.type === 'buy'){
       return `
