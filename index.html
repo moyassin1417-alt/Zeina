@@ -834,6 +834,18 @@ function normalizeState(s){
     );
     s._goldHistoryBulkV2 = true;
   }
+  // one-time v3: correction — "غوشات متنوعة" was wrongly matched to the "غوشات عقال" purchase;
+  // they're different pieces, the sold ones have no recorded cost, and غوشات عقال is still held.
+  if(!s._goldHistoryBulkV3 && looksLikeRealAccount){
+    const variedSell = s.goldHistory.find(h=>h.type==='sell' && h.name==='غوشات متنوعة');
+    if(variedSell){ variedSell.costBasis = null; variedSell.gain = null; }
+    const aqalBuy = s.goldHistory.find(h=>h.type==='buy' && h.name==='غوشات عقال');
+    if(aqalBuy && !(s.gold||[]).some(g=>g.name==='غوشات عقال')){
+      if(!Array.isArray(s.gold)) s.gold = [];
+      s.gold.push({ id: 'ghc_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6), name:'غوشات عقال', weight: aqalBuy.weight, value:0, imageData:null, costBasis: aqalBuy.amount });
+    }
+    s._goldHistoryBulkV3 = true;
+  }
   if(typeof s.zakatCash !== 'number' || isNaN(s.zakatCash)) s.zakatCash = 0;
   if(!Array.isArray(s.messages)) s.messages = [];
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
