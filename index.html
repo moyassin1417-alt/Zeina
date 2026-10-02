@@ -800,6 +800,40 @@ function normalizeState(s){
     ];
     s._goldHistoryBulkV1 = true;
   }
+  // one-time v2: the person gave more precise piece-by-piece detail, matching each sell to the
+  // specific piece(s) it was made of — supersedes the rough v1 load above with accurate cost-basis
+  // matches, and adds the pieces that are still actually held to current gold inventory.
+  if(!s._goldHistoryBulkV2 && looksLikeRealAccount){
+    const mkId2 = (i) => 'ghc_' + Date.now().toString(36) + i + Math.random().toString(36).slice(2,6);
+    const today = new Date().toISOString().slice(0,10);
+    s.goldHistory = [
+      { id: mkId2(0),  type:'buy',  name:'انسيال براقع', weight:4,     amount:1200,  user:'بابا', date: today },
+      { id: mkId2(1),  type:'buy',  name:'عقد براقع',    weight:10,    amount:4330,  user:'بابا', date: today },
+      { id: mkId2(2),  type:'buy',  name:'اسورة',        weight:9.1,   amount:3800,  user:'بابا', date: today },
+      { id: mkId2(3),  type:'buy',  name:'انسيال',       weight:4,     amount:1470,  user:'بابا', date: today },
+      { id: mkId2(4),  type:'buy',  name:'حلق صغير',     weight:1.1,   amount:515,   user:'بابا', date: today },
+      { id: mkId2(5),  type:'sell', name:'اسورة وانسيال', weight:13.1,  saleAmount:6200,  amount:6200,  costBasis:5270, gain:930,  user:'بابا', date: today },
+      { id: mkId2(6),  type:'buy',  name:'كف',           weight:12.3,  amount:4000,  user:'بابا', date: today },
+      { id: mkId2(7),  type:'sell', name:'كف',           weight:12.3,  saleAmount:5800,  amount:5800,  costBasis:4000, gain:1800, user:'بابا', date: today },
+      { id: mkId2(8),  type:'buy',  name:'خاتم',         weight:4.06,  amount:1925,  user:'بابا', date: today },
+      { id: mkId2(9),  type:'buy',  name:'غوشات عقال',   weight:23.11, amount:10975, user:'بابا', date: today },
+      { id: mkId2(10), type:'sell', name:'عقد وانسيال براقع وحلق صغير', weight:15.30, saleAmount:7180, amount:7180, costBasis:6045, gain:1135, user:'بابا', date: today },
+      { id: mkId2(11), type:'sell', name:'خاتم',         weight:4.06,  saleAmount:1942,  amount:1942,  costBasis:1925, gain:17,   user:'بابا', date: today },
+      { id: mkId2(12), type:'buy',  name:'غوشة ١٧.٢٤ + انسيال ٢.٧٩ جم (مشترى سوا)', weight:20.03, amount:9223, user:'بابا', date: today },
+      { id: mkId2(13), type:'sell', name:'غوشات متنوعة', weight:22.96, saleAmount:10349, amount:10349, costBasis:10975, gain:-626, user:'بابا', date: today },
+      { id: mkId2(14), type:'sell', name:'حلق كبير',     weight:9.5,   saleAmount:4290,  amount:4290,  costBasis:null, gain:null, user:'بابا', date: today },
+      { id: mkId2(15), type:'buy',  name:'سوار إيطالي',  weight:21.66, amount:9725,  user:'بابا', date: today },
+      { id: mkId2(16), type:'buy',  name:'غوشة مخططة',   weight:14.95, amount:6725,  user:'بابا', date: today }
+    ];
+    // pieces that were never matched to a later sell — still actually held, per the person's note
+    if(!Array.isArray(s.gold)) s.gold = [];
+    s.gold.push(
+      { id: mkId2(17), name:'غوشة ١٧.٢٤ + انسيال ٢.٧٩ جم (مشترى سوا)', weight:20.03, value:0, imageData:null, costBasis:9223 },
+      { id: mkId2(18), name:'سوار إيطالي', weight:21.66, value:0, imageData:null, costBasis:9725 },
+      { id: mkId2(19), name:'غوشة مخططة', weight:14.95, value:0, imageData:null, costBasis:6725 }
+    );
+    s._goldHistoryBulkV2 = true;
+  }
   if(typeof s.zakatCash !== 'number' || isNaN(s.zakatCash)) s.zakatCash = 0;
   if(!Array.isArray(s.messages)) s.messages = [];
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
@@ -2206,14 +2240,15 @@ function renderGoldHistory(){
     return;
   }
   const sells = state.goldHistory.filter(h=>h.type!=='buy');
-  const buys = state.goldHistory.filter(h=>h.type==='buy');
   const knownSells = sells.filter(h=>h.costBasis!=null && h.gain!=null);
   const unknownSellsCount = sells.length - knownSells.length;
-  const totalGain = knownSells.reduce((s,h)=>s+Number(h.gain||0),0);
-  const totalSpent = buys.reduce((s,h)=>s+Number(h.amount||0),0);
-  const net = totalGain - totalSpent;
-  let totalHtml = `${net>=0?'صافي ربح':'صافي خسارة'}: <span style="color:${net>=0?'var(--accent2)':'var(--danger)'}">${fmt(Math.abs(net))}</span>`;
-  if(unknownSellsCount) totalHtml += ` <span style="opacity:.7">(${unknownSellsCount} عملية بيع بدون تكلفة شراء مسجّلة، مش محسوبة في الصافي)</span>`;
+  // Net = sum of realized gain/loss on completed sells only. A buy's cost is already folded into
+  // its matching sell's gain, and a buy that's still held is an asset swap (cash -> gold), not a
+  // loss — so buy amounts must never be subtracted here (that would double-count matched costs and
+  // wrongly treat currently-held gold as money lost).
+  const net = knownSells.reduce((s,h)=>s+Number(h.gain||0),0);
+  let totalHtml = `${net>=0?'صافي ربح محقق':'صافي خسارة محققة'}: <span style="color:${net>=0?'var(--accent2)':'var(--danger)'}">${fmt(Math.abs(net))}</span>`;
+  if(unknownSellsCount) totalHtml += ` <span style="opacity:.7">(${unknownSellsCount} عملية بيع بدون تكلفة شراء مسجّلة، مش محسوبة)</span>`;
   totalEl.innerHTML = totalHtml;
   listEl.innerHTML = state.goldHistory.slice().reverse().map(h=>{
     if(h.type === 'buy'){
