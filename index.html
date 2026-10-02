@@ -626,6 +626,9 @@ details.expander[open] summary{margin-bottom:4px}
     <input id="goldWeight" placeholder="الوزن (جم)" type="number">
   </div>
   <div class="formrow">
+    <input id="goldCost" placeholder="سعر الشراء بالريال (اختياري)" type="number">
+  </div>
+  <div class="formrow">
     <label class="filepick" id="goldFileLabel" style="flex:1">📷 صورة القطعة (اختياري)<input id="goldFile" type="file" accept="image/*"></label>
   </div>
   <div class="formrow" id="goldImagePreviewRow" style="display:none; align-items:center; gap:8px">
@@ -637,6 +640,13 @@ details.expander[open] summary{margin-bottom:4px}
     <button class="add" id="goldSubmitBtn" style="flex:1" onclick="addGold()">إضافة القطعة</button>
   </div>
   <button class="add" id="goldCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditGold()">إلغاء التعديل</button>
+
+  <details class="expander" id="goldHistoryDetails" style="margin-top:14px">
+    <summary>📜 سجل بيع الذهب — <span id="goldHistoryTotal">لا توجد عمليات بيع بعد</span></summary>
+    <div style="margin-top:8px">
+      <div id="goldHistoryList"></div>
+    </div>
+  </details>
 </div>
 
 <div class="section tabview" data-tab="reports">
@@ -761,6 +771,7 @@ function normalizeState(s){
   if(!Array.isArray(s.recurring)) s.recurring = [];
   if(!Array.isArray(s.goals)) s.goals = [];
   if(!Array.isArray(s.income)) s.income = [];
+  if(!Array.isArray(s.goldHistory)) s.goldHistory = [];
   if(typeof s.zakatCash !== 'number' || isNaN(s.zakatCash)) s.zakatCash = 0;
   if(!Array.isArray(s.messages)) s.messages = [];
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
@@ -2129,15 +2140,43 @@ function renderGold(){
   if(!state.gold.length){ el.innerHTML = '<div class="empty">لا توجد قطع ذهب بعد</div>'; return; }
   el.innerHTML = state.gold.slice().reverse().map(g=>{
     const val = goldItemValue(g);
+    let gainNote = '';
+    if(g.costBasis){
+      const gain = val - Number(g.costBasis);
+      const sign = gain >= 0 ? '+' : '';
+      gainNote = ` <span style="color:${gain>=0?'var(--accent2)':'var(--danger)'}">(${sign}${fmt(gain)})</span>`;
+    }
     return `
     <div class="goldrow">
       ${g.imageData ? `<img src="${g.imageData}" title="${escapeHtml(g.name)}" style="cursor:pointer" onclick="openImageViewer('${g.imageData}')">` : `<div class="ph">💍</div>`}
       <div class="info">
         ${g.imageData ? '' : `<div class="name">${escapeHtml(g.name)}</div>`}
-        <div class="note">${g.weight} جم${val?' · '+fmt(val):''}</div>
+        <div class="note">${g.weight} جم${val?' · '+fmt(val):''}${gainNote}</div>
       </div>
+      <button class="edit" onclick="sellGoldItem('${g.id}')" title="بيع" style="color:var(--accent2)">💰</button>
       <button class="edit" onclick="startEditGold('${g.id}')">✎</button>
       <button class="del" onclick="removeItem('gold','${g.id}')">✕</button>
+    </div>`;
+  }).join('');
+  renderGoldHistory();
+}
+function renderGoldHistory(){
+  const totalEl = document.getElementById('goldHistoryTotal');
+  const listEl = document.getElementById('goldHistoryList');
+  if(!totalEl || !listEl) return;
+  if(!state.goldHistory.length){
+    totalEl.textContent = 'لا توجد عمليات بيع بعد';
+    listEl.innerHTML = '<div class="empty">لا توجد عمليات بيع بعد</div>';
+    return;
+  }
+  const totalGain = state.goldHistory.reduce((s,h)=>s+Number(h.gain||0),0);
+  totalEl.innerHTML = `إجمالي ${totalGain>=0?'الربح':'الخسارة'}: <span style="color:${totalGain>=0?'var(--accent2)':'var(--danger)'}">${fmt(Math.abs(totalGain))}</span>`;
+  listEl.innerHTML = state.goldHistory.slice().reverse().map(h=>{
+    const sign = h.gain>=0 ? '+' : '';
+    return `
+    <div class="row">
+      <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · بيع بـ${fmt(h.saleAmount)}</div></div>
+      <div class="amt" style="color:${h.gain>=0?'var(--accent2)':'var(--danger)'}">${sign}${fmt(h.gain)}</div>
     </div>`;
   }).join('');
 }
@@ -2150,6 +2189,7 @@ function startEditGold(id){
   editingGoldId = id;
   document.getElementById('goldName').value = item.name || '';
   document.getElementById('goldWeight').value = item.weight;
+  document.getElementById('goldCost').value = item.costBasis || '';
   document.getElementById('goldSubmitBtn').textContent = 'تحديث';
   document.getElementById('goldCancelBtn').style.display = 'block';
   editingGoldImageCleared = false;
@@ -2178,6 +2218,7 @@ function cancelEditGold(){
   editingGoldImageCleared = false;
   document.getElementById('goldName').value = '';
   document.getElementById('goldWeight').value = '';
+  document.getElementById('goldCost').value = '';
   document.getElementById('goldFile').value = '';
   document.getElementById('goldImagePreviewRow').style.display = 'none';
   document.getElementById('goldSubmitBtn').textContent = 'إضافة القطعة';
@@ -2749,8 +2790,11 @@ function compressImage(file, maxDim, quality){
 async function addGold(){
   const nameEl = document.getElementById('goldName');
   const weightEl = document.getElementById('goldWeight');
+  const costEl = document.getElementById('goldCost');
   const fileEl = document.getElementById('goldFile');
   const name = nameEl.value.trim(); const weight = Number(weightEl.value);
+  const costRaw = costEl.value.trim();
+  const costBasis = costRaw ? Number(costRaw) : null;
   if(!name || !weight) return;
   const existing = editingGoldId ? state.gold.find(g=>g.id===editingGoldId) : null;
   let imageData = existing ? (editingGoldImageCleared ? null : editingGoldExistingImage) : null;
@@ -2761,10 +2805,11 @@ async function addGold(){
     existing.name = name;
     existing.weight = weight;
     existing.imageData = imageData;
+    if(costBasis !== null) existing.costBasis = costBasis;
   } else {
-    state.gold.push({id:uid(), name, weight, value:0, imageData});
+    state.gold.push({id:uid(), name, weight, value:0, imageData, costBasis});
   }
-  nameEl.value=''; weightEl.value=''; fileEl.value='';
+  nameEl.value=''; weightEl.value=''; costEl.value=''; fileEl.value='';
   document.getElementById('goldImagePreviewRow').style.display = 'none';
   if(existing){
     editingGoldId = null;
@@ -2774,6 +2819,45 @@ async function addGold(){
     document.getElementById('goldCancelBtn').style.display = 'none';
   }
   saveState(); render();
+}
+async function sellGoldItem(id){
+  const item = state.gold.find(g=>g.id===id);
+  if(!item) return;
+  let costBasis = item.costBasis;
+  if(!costBasis){
+    const costRaw = await showPrompt('القطعة دي معندهاش سعر شراء مسجّل، اكتب سعر الشراء الأصلي بالريال:', '', {inputType:'number', icon:'🧾'});
+    if(costRaw === null) return;
+    costBasis = Number(costRaw);
+    if(isNaN(costBasis) || costBasis < 0){ await showAlert('قيمة غير صحيحة'); return; }
+    item.costBasis = costBasis;
+  }
+  const defaultSale = goldItemValue(item) || '';
+  const saleRaw = await showPrompt(`بكام بعت "${item.name || 'القطعة'}"؟`, String(defaultSale), {inputType:'number', icon:'💰', okText:'بيع'});
+  if(saleRaw === null) return;
+  const saleAmount = Number(saleRaw);
+  if(isNaN(saleAmount) || saleAmount < 0){ await showAlert('قيمة غير صحيحة'); return; }
+
+  const idx = state.gold.findIndex(g=>g.id===id);
+  const removedItem = state.gold[idx];
+  state.gold.splice(idx,1);
+
+  const gain = saleAmount - Number(costBasis);
+  const historyEntry = { id:uid(), goldId:id, name:removedItem.name, weight:removedItem.weight, costBasis:Number(costBasis), saleAmount, gain, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10) };
+  state.goldHistory.push(historyEntry);
+
+  const incomeEntry = { id:uid(), name:`بيع ذهب: ${removedItem.name||'قطعة'}`, amount: saleAmount, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10), month: viewMonth, goldHistoryId: historyEntry.id };
+  state.income.push(incomeEntry);
+
+  saveState(); render();
+  const gainLabel = gain >= 0 ? `ربح ${fmt(gain)}` : `خسارة ${fmt(Math.abs(gain))}`;
+  showUndoToast(`تم بيع القطعة (${gainLabel})`, () => {
+    state.gold.splice(idx,0,removedItem);
+    const hIdx = state.goldHistory.findIndex(h=>h.id===historyEntry.id);
+    if(hIdx !== -1) state.goldHistory.splice(hIdx,1);
+    const iIdx = state.income.findIndex(i=>i.id===incomeEntry.id);
+    if(iIdx !== -1) state.income.splice(iIdx,1);
+    saveState(); render();
+  });
 }
 const DELETE_UNDO_LABELS = { assets:'الأصل', liabilities:'الالتزام', expenses:'المصروف', gold:'القطعة', income:'الدخل الإضافي' };
 function removeItem(key,id){
