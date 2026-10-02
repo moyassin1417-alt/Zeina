@@ -1939,7 +1939,7 @@ function render(){
   const isWarn = !isOver && monthBudget>0 && (expTotal/monthBudget)>=0.8;
   document.getElementById('budgetBar').className = 'budgetbar' + (isOver ? ' over' : isWarn ? ' warn' : '');
   document.getElementById('budgetText').textContent = monthBudget
-    ? `صُرف ${fmt(expTotal)} وكتبقي ${fmt(remaining)}` + (monthIncome ? ` (شاملة دخل إضافي ${fmt(monthIncome)})` : '') + (isWarn ? ' — اقتربت من حد الميزانية ⚠️' : '')
+    ? `صُرف ${fmt(expTotal)} ومتبقي ${fmt(remaining)}` + (monthIncome ? ` (شاملة دخل إضافي ${fmt(monthIncome)})` : '') + (isWarn ? ' — اقتربت من حد الميزانية ⚠️' : '')
     : 'لم تُحدد ميزانية لهذا الشهر بعد';
   renderIncome();
 
