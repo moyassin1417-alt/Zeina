@@ -598,6 +598,22 @@ details.expander[open] summary{margin-bottom:4px}
     <button class="add" onclick="addItem('liabilities')">إضافة</button>
   </div>
 
+  <h2 style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px">🤝 سجل النقطة (بالجنيه المصري) <span class="tot" id="nuqtaTotal"></span></h2>
+  <div class="sub" id="nuqtaOwedToYouNote" style="margin-bottom:8px"></div>
+  <div id="nuqtaList"></div>
+  <div class="formrow">
+    <input id="nuqtaName" placeholder="الاسم">
+    <input id="nuqtaNote" placeholder="ملاحظة (اختياري)">
+  </div>
+  <div class="formrow">
+    <input id="nuqtaTotalInput" placeholder="مبلغ النقطة" type="number">
+    <input id="nuqtaPaidInput" placeholder="المدفوع لحد دلوقتي (اختياري)" type="number">
+  </div>
+  <div class="formrow">
+    <button class="add" id="nuqtaSubmitBtn" style="flex:1" onclick="addNuqta()">إضافة للسجل</button>
+  </div>
+  <button class="add" id="nuqtaCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditNuqta()">إلغاء التعديل</button>
+
   <h2 style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px">🎯 أهداف الادخار <span class="tot" id="goalsTotal"></span></h2>
   <div class="sub" style="margin-bottom:8px">أي مبلغ تضيفه لهدف الادخار يتسجل تلقائيًا كمصروف "ادخار" وينزل من ميزانية الشهر</div>
   <div id="goalsList"></div>
@@ -846,6 +862,74 @@ function normalizeState(s){
     }
     s._goldHistoryBulkV3 = true;
   }
+  if(!Array.isArray(s.nuqta)) s.nuqta = [];
+  // one-time: import the real نقطة (wedding-gift) ledger from the spreadsheet — people still owed
+  // money back (or who are owed money back from the person), skipping anyone already fully settled.
+  if(!s._nuqtaImportV1 && looksLikeRealAccount){
+    const mkIdN = (i) => 'nq_' + Date.now().toString(36) + i + Math.random().toString(36).slice(2,6);
+    const today = new Date().toISOString().slice(0,10);
+    s.nuqta.push(
+      { id: mkIdN(0), name: 'حسن هاشم ( اسماء)', total: 5000, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(1), name: 'محمد سعيد (حلق 1.170 جرام)', total: 4000, paid: 400, note: null, user: 'بابا', date: today },
+      { id: mkIdN(2), name: 'عم يحي (عشاء)', total: 100, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(3), name: 'ام اسامة', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(4), name: 'اماني', total: 400, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(5), name: 'ام احمد فوزي', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(6), name: 'سلطان ربيع', total: 1000, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(7), name: 'حنان طارق', total: 100, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(8), name: 'فاتن', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(9), name: 'سعيد سليم', total: 1000, paid: 1200, note: null, user: 'بابا', date: today },
+      { id: mkIdN(10), name: 'خالتي هانم', total: 1200, paid: 500, note: null, user: 'بابا', date: today },
+      { id: mkIdN(11), name: 'محمد حسني', total: 1000, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(12), name: 'سمورة', total: 1000, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(13), name: 'عمي مصطفي', total: 1000, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(14), name: 'حسام ( ايمان )', total: 1400, paid: 1000, note: null, user: 'بابا', date: today },
+      { id: mkIdN(15), name: 'عمتي فاطمة (عشاء)', total: 1200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(16), name: 'عمتي رضا (عشاء)', total: 1200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(17), name: 'عم ابراهيم سعيد', total: 500, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(18), name: 'ام مني ربيع', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(19), name: 'رنيا طارق', total: 100, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(20), name: 'سيد يسن', total: 1000, paid: 2500, note: null, user: 'بابا', date: today },
+      { id: mkIdN(21), name: 'سارة يسن', total: 1000, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(22), name: 'محمد سليم', total: 500, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(23), name: 'هناء خليل', total: 500, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(24), name: 'ربيع خليل', total: 500, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(25), name: 'حسن طة', total: 500, paid: 600, note: null, user: 'بابا', date: today },
+      { id: mkIdN(26), name: 'محمود السويفي', total: 600, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(27), name: 'علي اكس', total: 500, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(28), name: 'محمد جمعة دياب', total: 500, paid: 600, note: null, user: 'بابا', date: today },
+      { id: mkIdN(29), name: 'خالي رافت', total: 500, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(30), name: 'طة علي', total: 500, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(31), name: 'خالي فيصل', total: 400, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(32), name: 'اشرف يسن', total: 400, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(33), name: 'بكار البطل', total: 400, paid: 200, note: null, user: 'بابا', date: today },
+      { id: mkIdN(34), name: 'عدنان اشرف', total: 300, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(35), name: 'حازم ربيع', total: 300, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(36), name: 'مها', total: 500, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(37), name: 'عمتي انهار', total: 400, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(38), name: 'عمتي امينة', total: 400, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(39), name: 'هدي اشرف', total: 400, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(40), name: 'عمتي انوار', total: 500, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(41), name: 'احمد البطل', total: 400, paid: 200, note: null, user: 'بابا', date: today },
+      { id: mkIdN(42), name: 'ام مخلوف', total: 400, paid: 200, note: null, user: 'بابا', date: today },
+      { id: mkIdN(43), name: 'طارق يسن', total: 300, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(44), name: 'ام شريف', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(45), name: 'مرات رجب عبدالفضيل', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(46), name: 'خلود ربيع خليل', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(47), name: 'ام حازم', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(48), name: 'ام حسام ( الشبح )', total: 200, paid: 600, note: null, user: 'بابا', date: today },
+      { id: mkIdN(49), name: 'بدوي اشرف', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(50), name: 'بطة', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(51), name: 'ام عمرو', total: 400, paid: 200, note: null, user: 'بابا', date: today },
+      { id: mkIdN(52), name: 'ام شهاب', total: 200, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(53), name: 'هناء عبدالعليم', total: 300, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(54), name: 'هبة حسني', total: 300, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(55), name: 'مني عبدالعليم', total: 300, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(56), name: 'غادة', total: 100, paid: 0, note: null, user: 'بابا', date: today },
+      { id: mkIdN(57), name: 'ايمان', total: 100, paid: 0, note: null, user: 'بابا', date: today }
+    );
+    s._nuqtaImportV1 = true;
+  }
   if(typeof s.zakatCash !== 'number' || isNaN(s.zakatCash)) s.zakatCash = 0;
   if(!Array.isArray(s.messages)) s.messages = [];
   if(!s.budgets || typeof s.budgets !== 'object') s.budgets = {};
@@ -873,6 +957,7 @@ const CATS = [
   {key:'groceries',     label:'بقالة',          icon:'🛒', color:'#6334b5'},
   {key:'debts',         label:'ديون',           icon:'🤷', color:'#8c34b5'},
   {key:'liability_payment', label:'سداد التزام', icon:'🏦', color:'#6b4e2e'},
+  {key:'nuqta_payment', label:'سداد نقطة', icon:'🤝', color:'#4e6b6b'},
   {key:'savings',        label:'ادخار',          icon:'🎯', color:'#2e6b5f'},
   {key:'dining',        label:'أكل بره',        icon:'🍽️', color:'#b534b5'},
   {key:'installments',  label:'أقساط',          icon:'💳', color:'#b5348d'},
@@ -894,12 +979,12 @@ function catInfo(key){ return CATS.find(c=>c.key===key) || CATS[CATS.length-1]; 
 function populateCategorySelect(){
   const sel = document.getElementById('expCategory');
   if(!sel || sel.options.length) return;
-  sel.innerHTML = CATS.map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
+  sel.innerHTML = CATS.filter(c=>c.key!=='nuqta_payment').map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
 }
 function populateRecurringCategorySelect(){
   const sel = document.getElementById('recCategory');
   if(!sel || sel.options.length) return;
-  sel.innerHTML = CATS.filter(c=>c.key!=='liability_payment' && c.key!=='savings').map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
+  sel.innerHTML = CATS.filter(c=>c.key!=='liability_payment' && c.key!=='savings' && c.key!=='nuqta_payment').map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
 }
 async function addRecurring(){
   const catEl = document.getElementById('recCategory');
@@ -1980,6 +2065,7 @@ function render(){
 
   renderList('assetsList','assets');
   renderList('liabList','liabilities');
+  renderNuqta();
   renderGold();
   renderGoals();
   renderZakat();
@@ -2741,6 +2827,110 @@ function addItem(key){
   nameEl.value=''; valEl.value='';
   saveState(); render();
 }
+function fmtEGP(n){
+  return Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ج.م';
+}
+function nuqtaRemaining(n){
+  return Number(n.total||0) - Number(n.paid||0);
+}
+let editingNuqtaId = null;
+function renderNuqta(){
+  const totalEl = document.getElementById('nuqtaTotal');
+  const noteEl = document.getElementById('nuqtaOwedToYouNote');
+  const listEl = document.getElementById('nuqtaList');
+  if(!listEl) return;
+  if(!state.nuqta.length){
+    if(totalEl) totalEl.textContent = '';
+    if(noteEl) noteEl.textContent = '';
+    listEl.innerHTML = '<div class="empty">لا يوجد سجل نقطة بعد</div>';
+    return;
+  }
+  const owedByYou = state.nuqta.reduce((s,n)=>{ const r = nuqtaRemaining(n); return r>0 ? s+r : s; }, 0);
+  const owedToYou = state.nuqta.reduce((s,n)=>{ const r = nuqtaRemaining(n); return r<0 ? s+Math.abs(r) : s; }, 0);
+  if(totalEl) totalEl.textContent = `باقي عليك: ${fmtEGP(owedByYou)}`;
+  if(noteEl) noteEl.textContent = owedToYou ? `وليك عندهم: ${fmtEGP(owedToYou)}` : '';
+  listEl.innerHTML = state.nuqta.slice().reverse().map(n=>{
+    const remaining = nuqtaRemaining(n);
+    const owedToYouRow = remaining < 0;
+    return `
+    <div class="row" style="${owedToYouRow ? 'background:color-mix(in srgb, var(--accent2) 12%, transparent); border-radius:8px' : ''}">
+      <div><div class="name">${escapeHtml(n.name)}</div><div class="note">النقطة ${fmtEGP(n.total)} · مدفوع ${fmtEGP(n.paid)}${owedToYouRow ? ' · ليك عنده' : ''}</div></div>
+      <div class="amt" style="color:${owedToYouRow ? 'var(--accent2)' : 'var(--danger)'}">${fmtEGP(Math.abs(remaining))}</div>
+      <button class="edit" onclick="payNuqta('${n.id}')" title="سدد جزء">🤝</button>
+      <button class="edit" onclick="startEditNuqta('${n.id}')">✎</button>
+      <button class="del" onclick="removeItem('nuqta','${n.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+function addNuqta(){
+  const nameEl = document.getElementById('nuqtaName');
+  const noteEl = document.getElementById('nuqtaNote');
+  const totalEl = document.getElementById('nuqtaTotalInput');
+  const paidEl = document.getElementById('nuqtaPaidInput');
+  const name = nameEl.value.trim();
+  const note = noteEl.value.trim();
+  const total = Number(totalEl.value);
+  const paid = Number(paidEl.value) || 0;
+  if(!name || !total){ return; }
+  const existing = editingNuqtaId ? state.nuqta.find(n=>n.id===editingNuqtaId) : null;
+  if(existing){
+    existing.name = name;
+    existing.note = note || null;
+    existing.total = total;
+    existing.paid = paid;
+  } else {
+    state.nuqta.push({id:uid(), name, note: note || null, total, paid, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10)});
+  }
+  nameEl.value=''; noteEl.value=''; totalEl.value=''; paidEl.value='';
+  if(existing){
+    editingNuqtaId = null;
+    document.getElementById('nuqtaSubmitBtn').textContent = 'إضافة للسجل';
+    document.getElementById('nuqtaCancelBtn').style.display = 'none';
+  }
+  saveState(); render();
+}
+function startEditNuqta(id){
+  const n = state.nuqta.find(x=>x.id===id);
+  if(!n) return;
+  editingNuqtaId = id;
+  document.getElementById('nuqtaName').value = n.name || '';
+  document.getElementById('nuqtaNote').value = n.note || '';
+  document.getElementById('nuqtaTotalInput').value = n.total;
+  document.getElementById('nuqtaPaidInput').value = n.paid;
+  document.getElementById('nuqtaSubmitBtn').textContent = 'تحديث';
+  document.getElementById('nuqtaCancelBtn').style.display = 'block';
+  const nameEl = document.getElementById('nuqtaName');
+  nameEl.scrollIntoView({behavior:'smooth', block:'center'});
+  nameEl.focus();
+}
+function cancelEditNuqta(){
+  editingNuqtaId = null;
+  document.getElementById('nuqtaName').value = '';
+  document.getElementById('nuqtaNote').value = '';
+  document.getElementById('nuqtaTotalInput').value = '';
+  document.getElementById('nuqtaPaidInput').value = '';
+  document.getElementById('nuqtaSubmitBtn').textContent = 'إضافة للسجل';
+  document.getElementById('nuqtaCancelBtn').style.display = 'none';
+}
+async function payNuqta(id){
+  const n = state.nuqta.find(x=>x.id===id);
+  if(!n) return;
+  const remaining = nuqtaRemaining(n);
+  const raw = await showPrompt(`سدّدت كام لـ"${n.name}"؟ (بالجنيه المصري)`, remaining>0 ? String(remaining) : '', {inputType:'number', icon:'🤝', okText:'سدّد'});
+  if(raw === null) return;
+  const amount = Number(raw);
+  if(isNaN(amount) || amount <= 0){ await showAlert('قيمة غير صحيحة'); return; }
+  n.paid = Number(n.paid||0) + amount;
+  const expenseEntry = { id:uid(), category:'nuqta_payment', amount, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10), month: viewMonth, name:`سداد نقطة: ${n.name}`, nuqtaId: n.id };
+  state.expenses.push(expenseEntry);
+  saveState(); render();
+  showUndoToast(`تم تسجيل سداد ${fmtEGP(amount)} لـ"${n.name}"`, () => {
+    n.paid = Number(n.paid||0) - amount;
+    const ei = state.expenses.findIndex(e=>e.id===expenseEntry.id);
+    if(ei !== -1) state.expenses.splice(ei,1);
+    saveState(); render();
+  });
+}
 let editingExpenseId = null;
 let editingExpenseExistingReceipt = null;
 let editingExpenseReceiptCleared = false;
@@ -3064,13 +3254,14 @@ async function sellGoldItem(id){
     saveState(); render();
   });
 }
-const DELETE_UNDO_LABELS = { assets:'الأصل', liabilities:'الالتزام', expenses:'المصروف', gold:'القطعة', income:'الدخل الإضافي' };
+const DELETE_UNDO_LABELS = { assets:'الأصل', liabilities:'الالتزام', expenses:'المصروف', gold:'القطعة', income:'الدخل الإضافي', nuqta:'شخص النقطة' };
 function removeItem(key,id){
   const idx = state[key].findIndex(i=>i.id===id);
   if(idx === -1) return;
   const item = state[key][idx];
   let liabUndo = null;
   let goalUndo = null;
+  let nuqtaUndo = null;
   if(key === 'expenses' && item.category === 'liability_payment' && item.liabilityId){
     const liab = state.liabilities.find(l=>l.id===item.liabilityId);
     if(liab){
@@ -3087,8 +3278,16 @@ function removeItem(key,id){
       goal.saved = Math.max(0, Number(goal.saved||0) - Number(item.amount||0));
     }
   }
+  if(key === 'expenses' && item.category === 'nuqta_payment' && item.nuqtaId){
+    const n = state.nuqta.find(x=>x.id===item.nuqtaId);
+    if(n){
+      n.paid = Number(n.paid||0) - Number(item.amount||0);
+      nuqtaUndo = { nuqtaId: item.nuqtaId, amount: Number(item.amount||0) };
+    }
+  }
   if(key === 'expenses' && editingExpenseId === id) cancelEditExpense();
   if(key === 'gold' && editingGoldId === id) cancelEditGold();
+  if(key === 'nuqta' && editingNuqtaId === id) cancelEditNuqta();
   state[key].splice(idx,1);
   saveState(); render();
   showUndoToast(`تم حذف ${DELETE_UNDO_LABELS[key]||'البند'}`, () => {
@@ -3100,6 +3299,10 @@ function removeItem(key,id){
     if(goalUndo){
       const goal = state.goals.find(g=>g.id===goalUndo.goalId);
       if(goal) goal.saved = goalUndo.previousSaved;
+    }
+    if(nuqtaUndo){
+      const n = state.nuqta.find(x=>x.id===nuqtaUndo.nuqtaId);
+      if(n) n.paid = Number(n.paid||0) + nuqtaUndo.amount;
     }
     saveState(); render();
   });
