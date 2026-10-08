@@ -1291,12 +1291,18 @@ function renderIncome(){
     : '<div class="empty">لا يوجد دخل إضافي مسجّل لهذا الشهر</div>';
 }
 
-let dirty = false;
+// "dirty" = local edits not yet confirmed uploaded. Persisted so a refresh can never let the
+// (older) server copy silently overwrite edits that failed to upload.
+let dirty = localStorage.getItem('zainah_dirty') === '1';
+function setDirty(v){
+  dirty = v;
+  try{ if(v) localStorage.setItem('zainah_dirty','1'); else localStorage.removeItem('zainah_dirty'); }catch(e){}
+}
 function saveState(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){
     showAlert('تعذّر الحفظ — قد تكون مساحة التخزين ممتلئة (خصوصًا بسبب الصور).');
   }
-  dirty = true;
+  setDirty(true);
   syncPush();
 }
 
@@ -2007,7 +2013,9 @@ async function syncPull(announce){
       throw new Error(msg);
     }
     const data = await res.json();
+    const prev = state;
     state = normalizeState(data.record);
+    restoreLocalImages(state, prev);
     saveLocalOnly();
     render();
     setSyncStatus(true,'متزامن ✓');
@@ -2019,25 +2027,57 @@ async function syncPull(announce){
   }
   syncing = false;
 }
+const SYNC_MAX_BYTES = 95 * 1024; // jsonbin free plan caps a record at 100 KB
+// Copy of the state with heavy base64 images removed (they stay on this device only).
+function slimStateForSync(st){
+  const c = JSON.parse(JSON.stringify(st));
+  (c.gold||[]).forEach(g=>{ g.imageData = null; });
+  (c.goldHistory||[]).forEach(h=>{ h.imageData = null; });
+  (c.expenses||[]).forEach(e=>{ e.receiptImage = null; });
+  (c.messages||[]).forEach(m=>{ if(m){ m.image = null; m.audio = null; } });
+  return c;
+}
+// After pulling a slimmed server copy, keep this device's own images for items it already has.
+function restoreLocalImages(next, prev){
+  if(!prev) return;
+  const byId = (arr)=>{ const m = {}; (arr||[]).forEach(x=>{ if(x && x.id) m[x.id] = x; }); return m; };
+  const g = byId(prev.gold), e = byId(prev.expenses), h = byId(prev.goldHistory), msg = byId(prev.messages);
+  (next.gold||[]).forEach(x=>{ if(!x.imageData && g[x.id] && g[x.id].imageData) x.imageData = g[x.id].imageData; });
+  (next.goldHistory||[]).forEach(x=>{ if(!x.imageData && h[x.id] && h[x.id].imageData) x.imageData = h[x.id].imageData; });
+  (next.expenses||[]).forEach(x=>{ if(!x.receiptImage && e[x.id] && e[x.id].receiptImage) x.receiptImage = e[x.id].receiptImage; });
+  (next.messages||[]).forEach(x=>{ const o = msg[x.id]; if(o){ if(!x.image && o.image) x.image = o.image; if(!x.audio && o.audio) x.audio = o.audio; } });
+}
+let pushInFlight = false, pushAgain = false;
 async function syncPush(){
   if(!syncKey || !syncBin) return;
+  if(pushInFlight){ pushAgain = true; return; }
+  pushInFlight = true;
   try{
+    let body = JSON.stringify(state);
+    let slimmed = false;
+    if(body.length > SYNC_MAX_BYTES){
+      body = JSON.stringify(slimStateForSync(state));
+      slimmed = true;
+    }
+    const kb = Math.round(body.length / 1024);
     const res = await fetch(`https://api.jsonbin.io/v3/b/${syncBin}`, {
       method:'PUT',
       headers:{'Content-Type':'application/json','X-Master-Key':syncKey},
-      body: JSON.stringify(state)
+      body
     });
     if(!res.ok){
       let msg = 'HTTP '+res.status;
       try{ const j = await res.json(); if(j && j.message) msg = j.message; }catch(e2){}
-      throw new Error(msg);
+      throw new Error(msg + ' — الحجم ' + kb + ' كيلوبايت');
     }
-    dirty = false;
-    setSyncStatus(true,'متزامن ✓');
+    setDirty(false);
+    setSyncStatus(true, slimmed ? 'متزامن ✓ (الصور محفوظة على هذا الجهاز فقط لتجاوز حد حجم المزامنة)' : 'متزامن ✓');
   }catch(e){
     console.error('syncPush error:', e);
-    setSyncStatus(false,'تعذّر رفع آخر تعديل — هيتحاول تاني، بياناتك محفوظة محليًا');
+    setSyncStatus(false,'تعذّر رفع آخر تعديل: ' + (e.message||e) + ' — بياناتك محفوظة محليًا وهيتحاول تاني');
   }
+  pushInFlight = false;
+  if(pushAgain){ pushAgain = false; syncPush(); }
 }
 function saveLocalOnly(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
@@ -3326,7 +3366,7 @@ onCategoryChange();
   const p = document.getElementById(previewId);
   if(d && p) d.addEventListener('toggle', ()=>{ p.style.display = d.open ? 'none' : ''; });
 });
-if(syncKey && syncBin){ syncPull(); setInterval(()=>syncPull(), 20000);
+if(syncKey && syncBin){ syncPull(); setInterval(()=>syncPull(), 120000);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) syncPull(); });
 }
 render();
