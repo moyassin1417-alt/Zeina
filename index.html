@@ -644,6 +644,9 @@ details.expander[open] summary{margin-bottom:4px}
     <input id="goldWeight" placeholder="الوزن (جم)" type="number">
   </div>
   <div class="formrow">
+    <select id="goldKarat" style="flex:1"><option value="21">عيار ٢١</option><option value="18">عيار ١٨</option><option value="24">عيار ٢٤</option></select>
+  </div>
+  <div class="formrow">
     <input id="goldCost" placeholder="سعر الشراء بالريال (اختياري)" type="number">
   </div>
   <div class="formrow">
@@ -2099,8 +2102,9 @@ function render(){
   document.getElementById('assetsTotal').textContent = fmt(assetsTotal);
   document.getElementById('liabTotal').textContent = fmt(liabTotal);
   document.getElementById('goldTotal').textContent = goldValueTotal ? fmt(goldValueTotal) : '';
+  const karatParts = [18,21,24].map(k=>{ const w = state.gold.filter(g=>goldKaratOf(g)===k).reduce((a,g)=>a+Number(g.weight||0),0); return w ? `عيار ${k}: ${w.toLocaleString('en-US',{maximumFractionDigits:2})} جم` : ''; }).filter(Boolean);
   document.getElementById('goldWeightTot').textContent = state.gold.length
-    ? `إجمالي الوزن: ${goldWeightTotal.toLocaleString('en-US', {maximumFractionDigits:2})} جم` : '';
+    ? `إجمالي الوزن: ${goldWeightTotal.toLocaleString('en-US', {maximumFractionDigits:2})} جم` + (karatParts.length>1 ? ` (${karatParts.join(' · ')})` : '') : '';
   document.getElementById('goldPriceInfo').textContent = goldPricePerGram21k
     ? `سعر جرام الذهب عيار ٢١ اليوم: ${fmt(goldPricePerGram21k)} / جم${goldPriceUpdatedAt ? ' (محدث ' + new Date(goldPriceUpdatedAt).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ')' : ''}`
     : 'جارِ تحديث سعر الذهب...';
@@ -2338,8 +2342,9 @@ async function editItem(key, id){
   item.value = num;
   saveState(); render();
 }
+function goldKaratOf(g){ const k = Number(g && g.karat); return (k===18||k===24) ? k : 21; }
 function goldItemValue(g){
-  return goldPricePerGram21k ? (Number(g.weight||0) * goldPricePerGram21k) : Number(g.value||0);
+  return goldPricePerGram21k ? (Number(g.weight||0) * goldPricePerGram21k * (goldKaratOf(g)/21)) : Number(g.value||0);
 }
 function renderGold(){
   const el = document.getElementById('goldList');
@@ -2361,7 +2366,7 @@ function renderGold(){
       ${g.imageData ? `<img src="${g.imageData}" title="${escapeHtml(g.name)}" style="cursor:pointer" onclick="openImageViewer('${g.imageData}')">` : `<div class="ph">💍</div>`}
       <div class="info">
         ${g.imageData ? '' : `<div class="name">${escapeHtml(g.name)}</div>`}
-        <div class="note">${g.weight} جم${val?' · '+fmt(val):''}${gainNote}</div>
+        <div class="note">${g.weight} جم · عيار ${goldKaratOf(g)}${val?' · '+fmt(val):''}${gainNote}</div>
       </div>
       <button class="edit" onclick="sellGoldItem('${g.id}')" title="بيع" style="color:var(--accent2)">💰</button>
       <button class="edit" onclick="startEditGold('${g.id}')">✎</button>
@@ -2394,7 +2399,7 @@ function renderGoldHistory(){
     if(h.type === 'buy'){
       return `
       <div class="row">
-        <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · شراء${h.weight?' · '+h.weight+' جم':''}</div></div>
+        <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · شراء${h.weight?' · '+h.weight+' جم':''}${h.karat?' · عيار '+h.karat:''}</div></div>
         <div class="amt" style="color:var(--danger)">-${fmt(h.amount)}</div>
         <button class="edit" onclick="editGoldHistoryEntry('${h.id}')">✎</button>
         <button class="del" onclick="deleteGoldHistoryEntry('${h.id}')">✕</button>
@@ -2406,7 +2411,7 @@ function renderGoldHistory(){
     const amtColor = known ? (h.gain>=0?'var(--accent2)':'var(--danger)') : 'var(--sub)';
     return `
     <div class="row">
-      <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · بيع بـ${fmt(h.saleAmount)}${h.weight?' · '+h.weight+' جم':''}</div></div>
+      <div><div class="name">${escapeHtml(h.name)}</div><div class="note"><span class="userdot" style="background:${userColor(h.user)}"></span>${escapeHtml(h.user||'')} · ${formatExpenseDate(h.date)} · بيع بـ${fmt(h.saleAmount)}${h.weight?' · '+h.weight+' جم':''}${h.karat?' · عيار '+h.karat:''}</div></div>
       <div class="amt" style="color:${amtColor}">${amtHtml}</div>
       <button class="edit" onclick="editGoldHistoryEntry('${h.id}')">✎</button>
       <button class="del" onclick="deleteGoldHistoryEntry('${h.id}')">✕</button>
@@ -2465,7 +2470,7 @@ async function deleteGoldHistoryEntry(id){
     const gIdx = state.gold.findIndex(g=>g.id===h.goldId);
     if(gIdx !== -1){ removedGoldItem = state.gold[gIdx]; removedGoldIdx = gIdx; state.gold.splice(gIdx,1); }
   } else {
-    restoredItem = { id: h.goldId || uid(), name: h.name, weight: h.weight, value:0, imageData: h.imageData||null, costBasis: Number(h.costBasis||0) };
+    restoredItem = { id: h.goldId || uid(), name: h.name, weight: h.weight, karat: h.karat||21, value:0, imageData: h.imageData||null, costBasis: Number(h.costBasis||0) };
     state.gold.push(restoredItem);
   }
 
@@ -2490,6 +2495,7 @@ function startEditGold(id){
   editingGoldId = id;
   document.getElementById('goldName').value = item.name || '';
   document.getElementById('goldWeight').value = item.weight;
+  document.getElementById('goldKarat').value = String(goldKaratOf(item));
   document.getElementById('goldCost').value = item.costBasis || '';
   document.getElementById('goldSubmitBtn').textContent = 'تحديث';
   document.getElementById('goldCancelBtn').style.display = 'block';
@@ -2521,6 +2527,7 @@ function cancelEditGold(){
   editingGoldImageCleared = false;
   document.getElementById('goldName').value = '';
   document.getElementById('goldWeight').value = '';
+  document.getElementById('goldKarat').value = '21';
   document.getElementById('goldCost').value = '';
   document.getElementById('goldFile').value = '';
   document.getElementById('goldImagePreviewRow').style.display = 'none';
@@ -3204,6 +3211,7 @@ async function addGold(){
   const name = nameEl.value.trim(); const weight = Number(weightEl.value);
   const costRaw = costEl.value.trim();
   const costBasis = costRaw ? Number(costRaw) : null;
+  const karat = Number(document.getElementById('goldKarat').value) || 21;
   if(!name || !weight) return;
   const existing = editingGoldId ? state.gold.find(g=>g.id===editingGoldId) : null;
   let imageData = existing ? (editingGoldImageCleared ? null : editingGoldExistingImage) : null;
@@ -3213,12 +3221,13 @@ async function addGold(){
   if(existing){
     existing.name = name;
     existing.weight = weight;
+    existing.karat = karat;
     existing.imageData = imageData;
     if(costBasis !== null) existing.costBasis = costBasis;
   } else {
-    state.gold.push({id:uid(), name, weight, value:0, imageData, costBasis});
+    state.gold.push({id:uid(), name, weight, karat, value:0, imageData, costBasis});
   }
-  nameEl.value=''; weightEl.value=''; costEl.value=''; fileEl.value='';
+  nameEl.value=''; weightEl.value=''; costEl.value=''; fileEl.value=''; document.getElementById('goldKarat').value='21';
   document.getElementById('goldImagePreviewRow').style.display = 'none';
   if(existing){
     editingGoldId = null;
@@ -3240,18 +3249,19 @@ async function buyGoldItem(){
   const name = nameEl.value.trim();
   const weight = Number(weightEl.value);
   const cost = Number(costEl.value);
+  const karat = Number(document.getElementById('goldKarat').value) || 21;
   if(!name || !weight){ await showAlert('اكتب اسم القطعة والوزن'); return; }
   if(!cost || cost <= 0){ await showAlert('اكتب سعر الشراء بالريال'); return; }
   let imageData = null;
   if(fileEl.files && fileEl.files[0]){
     imageData = await compressImage(fileEl.files[0], 480, 0.7);
   }
-  const newItem = {id:uid(), name, weight, value:0, imageData, costBasis:cost};
+  const newItem = {id:uid(), name, weight, karat, value:0, imageData, costBasis:cost};
   state.gold.push(newItem);
   const today = new Date().toISOString().slice(0,10);
-  const historyEntry = { id:uid(), goldId:newItem.id, type:'buy', name, weight, amount:cost, imageData, user: window.currentUser||'أنا', date: today };
+  const historyEntry = { id:uid(), goldId:newItem.id, type:'buy', name, weight, karat, amount:cost, imageData, user: window.currentUser||'أنا', date: today };
   state.goldHistory.push(historyEntry);
-  nameEl.value=''; weightEl.value=''; costEl.value=''; fileEl.value='';
+  nameEl.value=''; weightEl.value=''; costEl.value=''; fileEl.value=''; document.getElementById('goldKarat').value='21';
   document.getElementById('goldImagePreviewRow').style.display = 'none';
   saveState(); render();
   showUndoToast(`تم تسجيل شراء "${name}" بمبلغ ${fmt(cost)}`, () => {
@@ -3284,7 +3294,7 @@ async function sellGoldItem(id){
   state.gold.splice(idx,1);
 
   const gain = saleAmount - Number(costBasis);
-  const historyEntry = { id:uid(), goldId:id, type:'sell', name:removedItem.name, weight:removedItem.weight, imageData:removedItem.imageData||null, costBasis:Number(costBasis), saleAmount, amount:saleAmount, gain, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10) };
+  const historyEntry = { id:uid(), goldId:id, type:'sell', name:removedItem.name, weight:removedItem.weight, karat:goldKaratOf(removedItem), imageData:removedItem.imageData||null, costBasis:Number(costBasis), saleAmount, amount:saleAmount, gain, user: window.currentUser||'أنا', date: new Date().toISOString().slice(0,10) };
   state.goldHistory.push(historyEntry);
 
   saveState(); render();
