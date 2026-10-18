@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14161A">
+<title>دفتر الذهب</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&family=Reem+Kufi:wght@600&display=swap">
+<style>
+:root{
+  --bg:#ECEEF0; --surface:#FFFFFF; --ink:#16191D; --mute:#5C636B; --line:#D8DCE0;
+  --brass:#8F6310; --brass-fill:#D4A22A; --brass-soft:#F3E8CC;
+  --pos:#1B7549; --neg:#B0342A; --field:#F6F7F8;
+  --ui:'IBM Plex Sans Arabic','Segoe UI',Tahoma,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  --disp:'Reem Kufi','IBM Plex Sans Arabic',sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#101215; --surface:#181B1F; --ink:#ECEDEF; --mute:#9AA1AA; --line:#2A2F35;
+  --brass:#E2B64C; --brass-fill:#C99A2B; --brass-soft:#2B2414;
+  --pos:#4CC38A; --neg:#F0766B; --field:#1F2328; color-scheme:dark}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{direction:rtl}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.55;
+  padding:env(safe-area-inset-top,0) max(16px,env(safe-area-inset-right,0px)) 92px max(16px,env(safe-area-inset-left,0px))}
+.wrap{max-width:560px;margin-inline:auto}
+header{position:sticky;top:0;z-index:20;background:var(--bg);padding-block:14px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-family:var(--disp);font-size:24px;margin:0;font-weight:600}
+h1 small{display:block;font-family:var(--ui);font-size:12px;color:var(--mute);font-weight:400}
+.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:2px}
+.seg button{border:0;background:none;color:var(--mute);font:inherit;font-weight:500;padding:5px 12px;border-radius:7px;cursor:pointer;min-height:34px}
+.seg button[aria-pressed="true"]{background:var(--brass);color:var(--surface)}
+section[hidden]{display:none}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-block:12px}
+.card h2{font-size:14px;margin:0 0 10px;color:var(--mute);font-weight:600}
+.num{font-family:var(--mono);direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums;font-weight:500}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+.hero{background:var(--ink);color:var(--bg);border-radius:14px;padding:18px;margin-block:8px 12px}
+.hero .lbl{font-size:13px;opacity:.75}
+.hero .big{font-family:var(--mono);direction:ltr;unicode-bidi:isolate;font-size:34px;font-weight:600;line-height:1.2;margin-block:4px}
+.hero .sub{font-size:13px;opacity:.85;display:flex;gap:6px;flex-wrap:wrap}
+.hero .big.pos{color:#59D399}.hero .big.neg{color:#FF8D82}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.stat .l{font-size:12.5px;color:var(--mute)} .stat .v{font-size:19px;margin-top:2px}
+table{width:100%;border-collapse:collapse}
+th{font-size:12px;color:var(--mute);font-weight:500;text-align:start;padding:6px 4px;border-bottom:1px solid var(--line)}
+td{padding:8px 4px;border-bottom:1px solid var(--line)} tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:end}
+.kbadge{display:inline-block;min-width:38px;text-align:center;background:var(--brass-soft);color:var(--brass);border-radius:6px;font-family:var(--mono);font-weight:600;padding:1px 6px}
+label{display:block;font-size:12.5px;color:var(--mute);margin-bottom:3px}
+input,select{width:100%;min-height:42px;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:9px;padding:8px 10px;font:inherit;font-size:16px}
+input[inputmode]{font-family:var(--mono);direction:ltr;text-align:right}
+input:disabled{opacity:.65}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+.row{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.row3{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.f{margin-block:8px;min-width:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+.btn.main{background:var(--brass);border-color:var(--brass);color:var(--surface)}
+.btn.sm{min-height:36px;padding:4px 12px;font-size:13.5px}
+.btn.bad{color:var(--neg)} .btn.wide{width:100%}
+.res{background:var(--field);border-radius:10px;padding:10px 12px;margin-top:10px}
+.res div{display:flex;justify-content:space-between;gap:10px;padding:3px 0}
+.res .tot{border-top:1px dashed var(--line);margin-top:4px;padding-top:7px;font-weight:600;font-size:16px}
+.pc{border:1px solid var(--line);border-radius:10px;padding:10px;margin-block:8px;background:var(--field)}
+.pc .top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.pc .row3{margin-top:8px}
+.pc .x{border:0;background:none;color:var(--neg);font-size:22px;cursor:pointer;min-width:40px;min-height:40px}
+.pc .pv{font-size:13px;color:var(--mute);margin-top:6px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.side-h{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.tag{font-size:11.5px;padding:1px 8px;border-radius:99px;background:var(--brass-soft);color:var(--brass);font-weight:600}
+details summary{cursor:pointer;font-weight:600;min-height:36px;display:flex;align-items:center;justify-content:space-between}
+.item{padding:12px 0;border-bottom:1px solid var(--line)} .item:last-child{border-bottom:0}
+.item .h{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.item .ln{font-size:13.5px;color:var(--mute);margin-top:3px}
+.item .acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.bars{display:grid;gap:7px}
+.bar{display:grid;grid-template-columns:62px 1fr 84px;gap:8px;align-items:center;font-size:13px}
+.bar .t{height:10px;background:var(--field);border-radius:5px;position:relative;overflow:hidden}
+.bar .t i{position:absolute;top:0;bottom:0;right:0;border-radius:5px}
+.note{font-size:12.5px;color:var(--mute)}
+.empty{text-align:center;color:var(--mute);padding:26px 8px}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mute)}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--mute)} .live.on i{background:var(--pos)}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);
+  padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+nav .in{max-width:560px;margin-inline:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
+nav button{border:0;background:none;color:var(--mute);font:inherit;font-size:12px;font-weight:500;min-height:50px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+nav button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button[aria-current="page"]{color:var(--brass);background:var(--brass-soft)}
+.toast{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:99px;font-size:14px;z-index:40;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>دفتر الذهب<small id="sub"></small></h1>
+    <div class="seg" role="group" aria-label="العملة">
+      <button data-cur="SAR" aria-pressed="true">ريال</button>
+      <button data-cur="EGP" aria-pressed="false">جنيه</button>
+    </div>
+  </header>
+  <section id="v-home"></section>
+  <section id="v-add" hidden></section>
+  <section id="v-stock" hidden></section>
+  <section id="v-calc" hidden></section>
+  <section id="v-log" hidden></section>
+</div>
+<nav aria-label="التبويبات"><div class="in">
+  <button data-tab="home" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>الرئيسية</button>
+  <button data-tab="add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>عملية</button>
+  <button data-tab="stock"><svg viewBox="0 0 24 24"><path d="M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8"/></svg>المخزون</button>
+  <button data-tab="calc"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h2M14 12h2M8 16h2M14 16h2"/></svg>حاسبة</button>
+  <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3"/></svg>السجل</button>
+</div></nav>
+
+<script>
+(function(){
+'use strict';
+var KARATS=[24,22,21,18,14,9], CURN={SAR:'ريال',EGP:'جنيه'};
+var cfg={cur:'SAR',ounce:0,usdsar:3.75,usdegp:0,local:{SAR:0,EGP:0},making:{SAR:0,EGP:0},spread:{SAR:0,EGP:0}};
+var deals=[], pieces=[], tab='home', F=null, SP=null, live={ounce:0,egp:0,at:0,ok:false};
+var dirty=false, syncT=null, lastTs=0;
+
+/* ---------- helpers ---------- */
+var AR='٠١٢٣٤٥٦٧٨٩';
+function n(v){var s=String(v==null?'':v).replace(/[٠-٩]/g,function(d){return AR.indexOf(d)}).replace(/٫/g,'.').replace(/[,،\s]/g,'');var x=parseFloat(s);return isFinite(x)?x:0}
+function fmt(v,d){d=d==null?2:d;return Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})}
+function sg(v){return (v>0.005?'+':v<-0.005?'−':'')+fmt(Math.abs(v))}
+function cl(v){return v>0.005?'pos':v<-0.005?'neg':''}
+function r2(v){return Math.round(v*100)/100}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function $(s,r){return (r||document).querySelector(s)}
+function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function toast(t){var e=document.createElement('div');e.className='toast';e.textContent=t;document.body.appendChild(e);setTimeout(function(){e.remove()},2400)}
+function kOpts(sel){return KARATS.map(function(k){return '<option value="'+k+'"'+(+sel===k?' selected':'')+'>'+k+'</option>'}).join('')}
+function byId(a,id){for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null}
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+
+/* ---------- prices ---------- */
+function ounce(){return live.ounce>0?live.ounce:cfg.ounce}
+function rateOf(c){return c==='SAR'?cfg.usdsar:(live.egp>0?live.egp:cfg.usdegp)}
+function g24(c){var r=rateOf(c),o=ounce();return (o>0&&r>0)?o/31.1034768*r:0}
+function p21(c){var l=cfg.local[c];return l>0?l:g24(c)*21/24}         /* سعر البيع للجمهور */
+function p21buy(c){var p=p21(c);return p>0?Math.max(0,p-n(cfg.spread[c])):0} /* سعر شراء الكسر */
+function pk(k,c){return p21(c)*k/21}
+
+/* ---------- math ---------- */
+function legVal(p,P){var w=n(p.w);return w*P*(+p.k)/21+w*n(p.m)}
+function leg21(p){return n(p.w)*(+p.k)/21}
+function legBasis(p,pBuy){ /* تكلفة القطعة الخارجة */
+  if(p.pid){var pc=byId(pieces,p.pid);if(pc)return n(pc.cost);return n(p.basis)}
+  if(n(p.cost)>0)return n(p.cost);
+  return n(p.w)*pBuy*(+p.k)/21;
+}
+function calc(d){
+  var sell=0,buy=0,o21=0,i21=0,basis=0;
+  d.out.forEach(function(p){sell+=legVal(p,n(d.pSell));o21+=leg21(p);basis+=legBasis(p,n(d.pBuy))});
+  d.in.forEach(function(p){buy+=legVal(p,n(d.pBuy));i21+=leg21(p)});
+  var exp=sell-buy, manual=!(d.cash===''||d.cash==null), cash=manual?n(d.cash):exp;
+  return {sell:sell,buy:buy,exp:exp,cash:cash,gold:i21-o21,o21:o21,i21:i21,basis:basis,profit:d.out.length?sell-basis:0};
+}
+function stockList(c){return pieces.filter(function(p){return p.cur===c&&p.status==='stock'}).sort(function(a,b){return a.date<b.date?1:-1})}
+function pieceMarket(p,c){return n(p.w)*p21buy(c)*(+p.k)/21}
+
+/* ---------- persistence + sync ---------- */
+function snapshot(){return {v:2,ts:Date.now(),cfg:cfg,deals:deals,pieces:pieces}}
+function applySnapshot(s){
+  if(!s)return;
+  if(s.cfg){for(var k in s.cfg){if(k==='local'||k==='making'||k==='spread')cfg[k]=Object.assign({SAR:0,EGP:0},s.cfg[k]);else cfg[k]=s.cfg[k]}}
+  deals=s.deals||[];pieces=s.pieces||[];lastTs=s.ts||0;
+}
+function saveAll(){
+  var s=snapshot();lastTs=s.ts;lsSet('gold_data_v2',JSON.stringify(s));
+  dirty=true;lsSet('gold_dirty','1');
+  clearTimeout(syncT);syncT=setTimeout(syncPush,700);
+}
+function loadLocal(){try{applySnapshot(JSON.parse(lsGet('gold_data_v2')||'null'))}catch(e){}dirty=lsGet('gold_dirty')==='1'}
+function skey(){return lsGet('gold_key')||lsGet('zainah_key')||''}
+function sbin(){return lsGet('gold_bin')||''}
+var syncState='off';
+function setSync(st){syncState=st;var e=$('#syncSt');if(e)e.textContent=({off:'غير مفعّلة',ok:'متزامن',busy:'جاري المزامنة...',err:'تعذرت المزامنة (الحفظ على الجهاز)'})[st]||''}
+async function api(method,path,body){
+  var h={'Content-Type':'application/json','X-Master-Key':skey()};
+  if(method==='POST'){h['X-Bin-Private']='true';h['X-Bin-Name']='gold-ledger'}
+  var r=await fetch('https://api.jsonbin.io/v3/'+path,{method:method,headers:h,body:body?JSON.stringify(body):undefined});
+  if(!r.ok)throw new Error('http '+r.status);return r.json();
+}
+async function syncPush(){
+  if(!sbin()||!skey()){return}
+  try{setSync('busy');await api('PUT','b/'+sbin(),snapshot());dirty=false;lsSet('gold_dirty','0');setSync('ok')}catch(e){setSync('err')}
+}
+async function syncPull(){
+  if(!sbin()||!skey()||dirty)return;
+  try{
+    var j=await api('GET','b/'+sbin()+'/latest');var s=j.record;
+    if(s&&s.ts&&s.ts>lastTs){applySnapshot(s);lsSet('gold_data_v2',JSON.stringify(snapshot()));if(!F||!F.id)newForm();renderAll()}
+    setSync('ok');
+  }catch(e){setSync('err')}
+}
+async function createBin(){
+  if(!skey()){toast('اكتب مفتاح jsonbin أولًا');return}
+  try{var j=await api('POST','b',snapshot());lsSet('gold_bin',j.metadata.id);dirty=false;lsSet('gold_dirty','0');toast('تم تفعيل المزامنة');renderHome()}catch(e){toast('فشل إنشاء المخزن، راجع المفتاح')}
+}
+
+/* ---------- live prices ---------- */
+async function fetchLive(){
+  try{
+    var r=await fetch('https://api.gold-api.com/price/XAU',{cache:'no-store'});var j=await r.json();
+    if(j&&j.price>0){live.ounce=j.price;live.at=Date.now();live.ok=true}
+  }catch(e){live.ok=false}
+  try{
+    if(!live.egp||Date.now()-(+lsGet('gold_fx_at')||0)>3600e3){
+      var r2x=await fetch('https://open.er-api.com/v6/latest/USD');var k=await r2x.json();
+      if(k&&k.rates&&k.rates.EGP>0){live.egp=k.rates.EGP;lsSet('gold_fx_at',String(Date.now()))}
+    }
+  }catch(e){}
+  lsSet('gold_live',JSON.stringify(live));
+  if(tab==='home')renderHome();
+  $('#sub').textContent=subLine();
+}
+function subLine(){var P=p21(cfg.cur);return P?('عيار 21: '+fmt(P)+' '+CURN[cfg.cur]+' / جم'):'أدخل سعر الذهب للبدء'}
+
+/* ---------- forms ---------- */
+function newLeg(side){return side==='out'?{pid:'',name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}:{name:'',k:21,w:'',m:''}}
+function newForm(){
+  var s=p21(cfg.cur),b=p21buy(cfg.cur);
+  F={id:null,date:today(),note:'',cur:cfg.cur,pSell:s?String(r2(s)):'',pBuy:b?String(r2(b)):'',out:[newLeg('out')],in:[newLeg('in')],cash:''};
+}
+function formFromDeal(d){
+  var k=calc(d),man=Math.abs(k.cash-k.exp)>0.005;
+  F={id:d.id,date:d.date,note:d.note||'',cur:d.cur,pSell:String(d.pSell),pBuy:String(d.pBuy),
+     out:d.out.map(function(p){return {pid:p.pid||'',name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||''),cost:p.pid?'':(p.cost?String(p.cost):'')}}),
+     in:d.in.map(function(p){return {name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||'')}}),
+     cash:man?String(r2(k.cash)):''};
+}
+function stockOptions(sel,usedIds){
+  var cur=F.cur,list=stockList(cur).filter(function(p){return p.id===sel||usedIds.indexOf(p.id)<0});
+  /* when editing, the pieces already sold in this deal are 'sold' status; include them */
+  if(F.id){pieces.forEach(function(p){if(p.soldDeal===F.id&&p.cur===cur&&usedIds.indexOf(p.id)<0&&list.indexOf(p)<0)list.push(p)})}
+  return '<option value="">قطعة خارج المخزون</option>'+list.map(function(p){return '<option value="'+p.id+'"'+(p.id===sel?' selected':'')+'>'+esc(p.name||'قطعة')+' · '+p.k+'ك · '+fmt(n(p.w))+' جم</option>'}).join('');
+}
+function legHtml(side,i,p){
+  var linked=side==='out'&&p.pid, used=F.out.map(function(x){return x.pid}).filter(Boolean);
+  var top=side==='out'
+    ?'<select data-f="pid" aria-label="القطعة">'+stockOptions(p.pid,used)+'</select>'
+    :'<input data-f="name" placeholder="وصف القطعة (خاتم، سلسلة...)" value="'+esc(p.name)+'" aria-label="وصف القطعة">';
+  return '<div class="pc" data-side="'+side+'" data-i="'+i+'"><div class="top">'+top+'<button class="x" data-act="rm" aria-label="حذف">×</button></div>'+
+   (side==='out'&&!linked?'<input data-f="name" style="margin-top:8px" placeholder="وصف القطعة" value="'+esc(p.name)+'" aria-label="وصف">':'')+
+   '<div class="row3"><div><label>العيار</label><select data-f="k"'+(linked?' disabled':'')+'>'+kOpts(p.k)+'</select></div>'+
+   '<div><label>الوزن (جم)</label><input data-f="w" inputmode="decimal" value="'+esc(p.w)+'"'+(linked?' disabled':'')+'></div>'+
+   '<div><label>'+(side==='out'?'مصنعيتك/جم':'مصنعية مدفوعة/جم')+'</label><input data-f="m" inputmode="decimal" value="'+esc(p.m)+'"></div></div>'+
+   (side==='out'&&!linked?'<div class="f"><label>تكلفتك فيها (اختياري، لو فاضي = خام بسعر الشراء)</label><input data-f="cost" inputmode="decimal" value="'+esc(p.cost)+'"></div>':'')+
+   '<div class="pv"><span>القيمة</span><b class="num" data-pv>0.00</b>'+(side==='out'?'<span>التكلفة</span><b class="num" data-bs>0.00</b>':'')+'</div></div>';
+}
+function renderAdd(){
+  $('#v-add').innerHTML=
+   '<div class="card"><h2>'+(F.id?'تعديل عملية':'عملية جديدة')+' · '+CURN[F.cur]+'</h2>'+
+    '<div class="row"><div class="f"><label for="fDate">التاريخ</label><input id="fDate" type="date" value="'+F.date+'"></div>'+
+    '<div class="f"><label for="fNote">ملاحظة / الطرف الآخر</label><input id="fNote" value="'+esc(F.note)+'"></div></div>'+
+    '<div class="row"><div class="f"><label for="fSell">سعر جرام 21 للبيع</label><input id="fSell" inputmode="decimal" value="'+esc(F.pSell)+'"></div>'+
+    '<div class="f"><label for="fBuy">سعر جرام 21 للشراء</label><input id="fBuy" inputmode="decimal" value="'+esc(F.pBuy)+'"></div></div></div>'+
+   '<div class="card"><div class="side-h"><b>قطع بعتها</b><button class="btn sm" data-act="add" data-side="out">+ قطعة</button></div>'+
+     F.out.map(function(p,i){return legHtml('out',i,p)}).join('')+'</div>'+
+   '<div class="card"><div class="side-h"><b>قطع اشتريتها (تدخل المخزون)</b><button class="btn sm" data-act="add" data-side="in">+ قطعة</button></div>'+
+     F.in.map(function(p,i){return legHtml('in',i,p)}).join('')+'</div>'+
+   '<div class="card"><h2>الحساب</h2><div id="sum"></div>'+
+    '<div class="f"><label for="fCash" id="fCashL">النقد الفعلي</label><input id="fCash" inputmode="decimal" value="'+esc(F.cash)+'"></div>'+
+    '<p class="note" style="margin:0">اتركه فاضي لو الفرق اتسوّى بالسعر المحسوب، أو اكتب اللي حصل فعلًا (+ استلمت، − دفعت).</p></div>'+
+   '<div class="row"><button class="btn main wide" data-act="save">'+(F.id?'حفظ التعديل':'حفظ العملية')+'</button>'+
+   '<button class="btn wide" data-act="reset">'+(F.id?'إلغاء':'مسح')+'</button></div>';
+  updateSum();
+}
+function updateSum(){
+  var d={pSell:F.pSell,pBuy:F.pBuy,out:F.out,in:F.in,cash:F.cash},k=calc(d);
+  document.querySelectorAll('#v-add .pc').forEach(function(r){
+    var s=r.dataset.side,p=F[s][+r.dataset.i];if(!p)return;
+    $('[data-pv]',r).textContent=fmt(legVal(p,n(s==='out'?F.pSell:F.pBuy)));
+    var bs=$('[data-bs]',r);if(bs)bs.textContent=fmt(legBasis(p,n(F.pBuy)));
+  });
+  $('#sum').innerHTML='<div class="res">'+
+   '<div><span>إجمالي ما بعته</span><b class="num">'+fmt(k.sell)+'</b></div>'+
+   '<div><span>إجمالي ما اشتريته</span><b class="num">'+fmt(k.buy)+'</b></div>'+
+   '<div><span>الفرق المحسوب ('+(k.exp>=0?'تستلم':'تدفع')+')</span><b class="num">'+fmt(Math.abs(k.exp))+'</b></div>'+
+   '<div><span>فرق الوزن (مكافئ 21)</span><b class="num '+cl(k.gold)+'">'+sg(k.gold)+' جم</b></div>'+
+   '<div class="tot"><span>ربح القطع المباعة</span><b class="num '+cl(k.profit)+'">'+sg(k.profit)+' '+CURN[F.cur]+'</b></div></div>';
+  $('#fCashL').textContent='النقد الفعلي (المحسوب: '+sg(k.exp)+')';
+}
+function revertDeal(id){
+  pieces=pieces.filter(function(p){return p.srcDeal!==id});
+  pieces.forEach(function(p){if(p.soldDeal===id){p.status='stock';p.soldDeal=null}});
+}
+function blocked(id){ /* هل قطعة اشتريت في العملية دي اتباعت بعدين؟ */
+  var b=pieces.filter(function(p){return p.srcDeal===id&&p.status==='sold'&&p.soldDeal!==id});
+  return b.length?b[0]:null;
+}
+function submitDeal(){
+  var out=F.out.filter(function(p){return n(p.w)>0}),inn=F.in.filter(function(p){return n(p.w)>0});
+  if(!out.length&&!inn.length){toast('أضف قطعة بوزن على الأقل');return}
+  if((out.length&&n(F.pSell)<=0)||(inn.length&&n(F.pBuy)<=0)){toast('اكتب سعر الجرام للبيع/الشراء');return}
+  if(F.id){var b=blocked(F.id);if(b){toast('القطعة "'+(b.name||'')+'" اتباعت في عملية لاحقة، عدّل تلك أولًا');return}revertDeal(F.id)}
+  var id=F.id||('d'+Date.now());
+  var d={id:id,date:F.date||today(),note:F.note.trim(),cur:F.cur,pSell:n(F.pSell),pBuy:n(F.pBuy),cash:null,ts:Date.now(),out:[],in:[]};
+  out.forEach(function(p){
+    var leg={pid:p.pid||'',name:p.name.trim(),k:+p.k,w:n(p.w),m:n(p.m)};
+    if(p.pid){var pc=byId(pieces,p.pid);if(pc){leg.name=pc.name;leg.k=pc.k;leg.w=n(pc.w);leg.basis=n(pc.cost);pc.status='sold';pc.soldDeal=id}}
+    else if(n(p.cost)>0)leg.cost=n(p.cost);
+    d.out.push(leg);
+  });
+  inn.forEach(function(p,i){
+    var leg={name:p.name.trim(),k:+p.k,w:n(p.w),m:n(p.m)};d.in.push(leg);
+    pieces.push({id:id+'_'+i,name:leg.name||'قطعة',k:leg.k,w:leg.w,cost:r2(legVal(leg,d.pBuy)),date:d.date,cur:d.cur,status:'stock',srcDeal:id,soldDeal:null});
+  });
+  d.cash=r2(calc({pSell:d.pSell,pBuy:d.pBuy,out:d.out,in:d.in,cash:F.cash}).cash);
+  deals=deals.filter(function(x){return x.id!==id});deals.push(d);
+  saveAll();toast('تم الحفظ');newForm();renderAll();showTab('log');
+}
+
+/* ---------- stock ---------- */
+function newSP(){SP={id:null,name:'',k:21,w:'',cost:'',date:today()}}
+function renderStock(){
+  var c=cfg.cur,L=stockList(c),w21=0,cost=0,mkt=0;
+  L.forEach(function(p){w21+=n(p.w)*p.k/21;cost+=n(p.cost);mkt+=pieceMarket(p,c)});
+  var rows=L.map(function(p){
+    var m=pieceMarket(p,c),u=m-n(p.cost);
+    return '<div class="item" data-pid="'+p.id+'"><div class="h"><b>'+esc(p.name)+' <span class="kbadge">'+p.k+'</span></b><span class="num">'+fmt(n(p.w))+' جم</span></div>'+
+     '<div class="ln">تكلفة: <span class="num">'+fmt(n(p.cost))+'</span> · خام اليوم: <span class="num">'+fmt(m)+'</span> · <span class="num '+cl(u)+'">'+sg(u)+'</span></div>'+
+     '<div class="ln">'+p.date+'</div>'+
+     '<div class="acts"><button class="btn sm main" data-act="sellpc">بيع</button><button class="btn sm" data-act="editpc">تعديل</button><button class="btn sm bad" data-act="delpc">حذف</button></div></div>';
+  }).join('');
+  $('#v-stock').innerHTML=
+   '<div class="grid2"><div class="stat"><div class="l">قطع في المخزون</div><div class="v num">'+L.length+'</div></div>'+
+   '<div class="stat"><div class="l">وزن المخزون (مكافئ 21)</div><div class="v num">'+fmt(w21)+' جم</div></div>'+
+   '<div class="stat"><div class="l">إجمالي التكلفة</div><div class="v num">'+fmt(cost)+'</div></div>'+
+   '<div class="stat"><div class="l">خام بسعر الشراء اليوم</div><div class="v num">'+(p21buy(c)?fmt(mkt):'—')+'</div></div></div>'+
+   '<div class="card">'+(rows||'<div class="empty">المخزون فاضي. القطع اللي تشتريها في العمليات بتدخل هنا تلقائيًا.</div>')+'</div>'+
+   '<details class="card" id="spBox"'+(SP&&SP.id?' open':'')+'><summary>'+(SP&&SP.id?'تعديل قطعة':'إضافة قطعة للمخزون (رصيد افتتاحي)')+'</summary>'+
+    '<div class="f"><label for="sName">الوصف</label><input id="sName" value="'+esc(SP.name)+'"></div>'+
+    '<div class="row3"><div class="f"><label for="sK">العيار</label><select id="sK">'+kOpts(SP.k)+'</select></div>'+
+    '<div class="f"><label for="sW">الوزن</label><input id="sW" inputmode="decimal" value="'+esc(SP.w)+'"></div>'+
+    '<div class="f"><label for="sC">التكلفة</label><input id="sC" inputmode="decimal" placeholder="اختياري" value="'+esc(SP.cost)+'"></div></div>'+
+    '<p class="note">لو سبت التكلفة فاضية تتحسب خام بسعر الشراء الحالي.</p>'+
+    '<button class="btn main wide" data-act="savepc">'+(SP.id?'حفظ التعديل':'إضافة')+'</button></details>';
+}
+function savePiece(){
+  var w=n(SP.w);if(w<=0){toast('اكتب الوزن');return}
+  var c=cfg.cur,cost=n(SP.cost)>0?n(SP.cost):w*p21buy(c)*(+SP.k)/21;
+  if(SP.id){var p=byId(pieces,SP.id);if(p){p.name=SP.name.trim()||'قطعة';p.k=+SP.k;p.w=w;p.cost=r2(cost)}}
+  else pieces.push({id:'p'+Date.now(),name:SP.name.trim()||'قطعة',k:+SP.k,w:w,cost:r2(cost),date:today(),cur:c,status:'stock',srcDeal:null,soldDeal:null});
+  saveAll();newSP();renderStock();renderHome();toast('تم الحفظ');
+}
+
+/* ---------- home / calc / log ---------- */
+function myDeals(){return deals.filter(function(d){return d.cur===cfg.cur}).sort(function(a,b){return a.date===b.date?(b.ts||0)-(a.ts||0):(a.date<b.date?1:-1)})}
+function renderHome(){
+  var c=cfg.cur,P=p21(c),L=myDeals(),prof=0,cash=0;
+  L.forEach(function(d){var k=calc(d);prof+=k.profit;cash+=k.cash});
+  var S=stockList(c),w21=0,cost=0,mkt=0;
+  S.forEach(function(p){w21+=n(p.w)*p.k/21;cost+=n(p.cost);mkt+=pieceMarket(p,c)});
+  var unreal=P?mkt-cost:0;
+  var g=g24(c),lcl=cfg.local[c]>0,prem=(lcl&&g>0)?(cfg.local[c]/(g*21/24)-1)*100:null;
+  var rows=KARATS.map(function(k){return '<tr><td><span class="kbadge">'+k+'</span></td><td class="r num">'+(g?fmt(g*k/24):'—')+'</td><td class="r num"><b>'+(P?fmt(pk(k,c)):'—')+'</b></td><td class="r num">'+(P?fmt(p21buy(c)*k/21):'—')+'</td></tr>'}).join('');
+  var months={};L.forEach(function(d){var m=d.date.slice(0,7),k=calc(d);months[m]=(months[m]||0)+k.profit});
+  var ms=Object.keys(months).sort().reverse().slice(0,6),mx=Math.max.apply(null,ms.map(function(m){return Math.abs(months[m])}).concat([1]));
+  var bars=ms.map(function(m){var v=months[m];return '<div class="bar"><span class="num">'+m+'</span><span class="t"><i style="width:'+Math.abs(v)/mx*100+'%;background:'+(v<0?'var(--neg)':'var(--brass-fill)')+'"></i></span><span class="num '+cl(v)+'" style="text-align:end">'+sg(v)+'</span></div>'}).join('');
+  var liveTxt=live.ok?('حي · '+new Date(live.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):'يدوي (لا يوجد اتصال بالأسعار)';
+  var bin=sbin();
+  $('#v-home').innerHTML=
+   '<div class="hero"><div class="lbl">ربح القطع المباعة ('+CURN[c]+')</div><div class="big '+cl(prof)+'">'+sg(prof)+'</div>'+
+   '<div class="sub"><span>'+L.length+' عملية</span><span>·</span><span>فرق تقييم المخزون: <b class="num">'+(P?sg(unreal):'—')+'</b></span></div></div>'+
+   '<div class="grid2"><div class="stat"><div class="l">صافي النقد من العمليات</div><div class="v num '+cl(cash)+'">'+sg(cash)+'</div></div>'+
+   '<div class="stat"><div class="l">مخزونك (مكافئ 21)</div><div class="v num">'+fmt(w21)+' جم</div></div></div>'+
+   '<div class="card"><h2>أسعار الجرام ('+CURN[c]+') <span class="live '+(live.ok?'on':'')+'" style="float:left"><i></i>'+liveTxt+'</span></h2>'+
+   (P?'<table><thead><tr><th>العيار</th><th class="r">عالمي</th><th class="r">بيع</th><th class="r">شراء</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+     (prem!=null?'<p class="note" style="margin:8px 0 0">السوق المحلي أعلى من العالمي بنسبة <b class="num">'+sg(prem)+'%</b> (عيار 21)</p>':''):
+     '<div class="empty">اكتب سعر الأونصة أو سعر عيار 21 من الإعدادات.</div>')+'</div>'+
+   '<div class="card"><h2>أرباح آخر الشهور</h2>'+(bars?'<div class="bars">'+bars+'</div>':'<div class="empty">لسه مفيش عمليات.</div>')+'</div>'+
+   '<details class="card" id="setBox"><summary>الإعدادات والمزامنة</summary>'+
+    '<div class="row"><div class="f"><label for="sOz">الأونصة بالدولار (احتياطي لو مفيش اتصال)</label><input id="sOz" inputmode="decimal" value="'+(cfg.ounce||'')+'"></div>'+
+    '<div class="f"><label for="sSar">دولار / ريال</label><input id="sSar" inputmode="decimal" value="'+(cfg.usdsar||'')+'"></div></div>'+
+    '<div class="row"><div class="f"><label for="sEgp">دولار / جنيه (احتياطي)</label><input id="sEgp" inputmode="decimal" value="'+(cfg.usdegp||'')+'"></div>'+
+    '<div class="f"><label for="sLoc">سعر جرام 21 بالسوق ('+CURN[c]+')</label><input id="sLoc" inputmode="decimal" placeholder="فاضي = العالمي" value="'+(cfg.local[c]||'')+'"></div></div>'+
+    '<div class="row"><div class="f"><label for="sSp">خصم الشراء عن البيع (لجرام 21)</label><input id="sSp" inputmode="decimal" value="'+(cfg.spread[c]||'')+'"></div>'+
+    '<div class="f"><label for="sMk">مصنعيتك الافتراضية/جم</label><input id="sMk" inputmode="decimal" value="'+(cfg.making[c]||'')+'"></div></div>'+
+    '<h2 style="margin-top:14px">المزامنة بين الأجهزة <span class="tag" id="syncSt">'+(bin?'':'غير مفعّلة')+'</span></h2>'+
+    (bin?'<p class="note">رقم المخزن (اكتبه في الجهاز التاني): <b class="num" style="user-select:all">'+esc(bin)+'</b></p><button class="btn sm" data-act="syncnow">مزامنة الآن</button>':
+      '<div class="f"><label for="sKey">مفتاح jsonbin '+(skey()?'(موجود من بيت زينة)':'')+'</label><input id="sKey" placeholder="X-Master-Key" value=""></div>'+
+      '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm main" data-act="mkbin">تفعيل المزامنة</button></div>'+
+      '<div class="f"><label for="sJoin">أو اربط بمخزن موجود (رقمه)</label><input id="sJoin"></div><button class="btn sm" data-act="joinbin">ربط</button>')+
+    '<h2 style="margin-top:14px">نسخ احتياطي</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="csv">تصدير العمليات CSV</button><button class="btn sm" data-act="backup">نسخة احتياطية</button><button class="btn sm" data-act="restore">استرجاع</button></div><input type="file" id="fileIn" accept=".json" hidden>'+
+   '</details>';
+  $('#sub').textContent=subLine();
+}
+function renderCalc(){
+  var c=cfg.cur,P=p21(c);
+  $('#v-calc').innerHTML=
+  '<div class="card"><h2>سعر القطعة بالخام والمصنعية</h2>'+
+   '<div class="row"><div class="f"><label for="c1k">العيار</label><select id="c1k">'+kOpts(21)+'</select></div><div class="f"><label for="c1w">الوزن (جم)</label><input id="c1w" inputmode="decimal"></div></div>'+
+   '<div class="row"><div class="f"><label for="c1t">نوع المصنعية</label><select id="c1t"><option value="g">لكل جرام</option><option value="p">نسبة من الخام %</option></select></div>'+
+   '<div class="f"><label for="c1m">المصنعية</label><input id="c1m" inputmode="decimal" value="'+(cfg.making[c]||'')+'"></div></div>'+
+   '<div class="f"><label for="cP">سعر جرام 21</label><input id="cP" inputmode="decimal" value="'+(P?r2(P):'')+'"></div><div class="res" id="r1"></div></div>'+
+  '<div class="card"><h2>استخراج المصنعية من السعر النهائي</h2>'+
+   '<div class="row3"><div class="f"><label for="c2k">العيار</label><select id="c2k">'+kOpts(21)+'</select></div><div class="f"><label for="c2w">الوزن</label><input id="c2w" inputmode="decimal"></div><div class="f"><label for="c2p">السعر</label><input id="c2p" inputmode="decimal"></div></div><div class="res" id="r2"></div></div>'+
+  '<div class="card"><h2>مكافئ الوزن بالعيارات</h2>'+
+   '<div class="row"><div class="f"><label for="c3k">عيار القطعة</label><select id="c3k">'+kOpts(18)+'</select></div><div class="f"><label for="c3w">الوزن (جم)</label><input id="c3w" inputmode="decimal"></div></div><div class="res" id="r3"></div></div>';
+  runCalc();
+}
+function runCalc(){
+  var P=n($('#cP').value)||p21(cfg.cur),k=+$('#c1k').value,w=n($('#c1w').value),m=n($('#c1m').value),raw=w*P*k/21,mk=$('#c1t').value==='g'?w*m:raw*m/100,tot=raw+mk;
+  $('#r1').innerHTML='<div><span>قيمة الخام</span><b class="num">'+fmt(raw)+'</b></div><div><span>المصنعية</span><b class="num">'+fmt(mk)+'</b></div><div><span>جرام الخام (عيار '+k+')</span><b class="num">'+fmt(P*k/21)+'</b></div>'+
+    '<div class="tot"><span>الإجمالي</span><b class="num">'+fmt(tot)+' '+CURN[cfg.cur]+'</b></div><div><span>الجرام بالمصنعية</span><b class="num">'+fmt(w?tot/w:0)+'</b></div>';
+  var k2=+$('#c2k').value,w2=n($('#c2w').value),p2=n($('#c2p').value),raw2=w2*P*k2/21,mk2=p2-raw2;
+  $('#r2').innerHTML='<div><span>قيمة الخام</span><b class="num">'+fmt(raw2)+'</b></div><div class="tot"><span>إجمالي المصنعية</span><b class="num '+cl(mk2)+'">'+sg(mk2)+'</b></div>'+
+    '<div><span>المصنعية للجرام</span><b class="num">'+fmt(w2?mk2/w2:0)+'</b></div><div><span>نسبتها من الخام</span><b class="num">'+fmt(raw2?mk2/raw2*100:0)+'%</b></div>';
+  var k3=+$('#c3k').value,w3=n($('#c3w').value);
+  $('#r3').innerHTML=KARATS.map(function(t){return '<div><span><span class="kbadge">'+t+'</span></span><b class="num">'+fmt(w3*k3/t)+' جم</b></div>'}).join('')+'<div class="tot"><span>قيمة الخام</span><b class="num">'+fmt(w3*P*k3/21)+' '+CURN[cfg.cur]+'</b></div>';
+}
+function lines(a){return a.map(function(p){return esc(p.name||'قطعة')+' '+p.k+'ك · '+fmt(n(p.w))+' جم'}).join(' + ')}
+function renderLog(){
+  var L=myDeals();
+  $('#v-log').innerHTML=!L.length?'<div class="card empty">مفيش عمليات بعملة '+CURN[cfg.cur]+' لسه.</div>':
+   '<div class="card">'+L.map(function(d){var k=calc(d);
+    return '<div class="item" data-id="'+d.id+'"><div class="h"><b class="num">'+d.date+'</b><b class="num '+cl(k.profit)+'">'+(d.out.length?sg(k.profit):'شراء')+'</b></div>'+
+     (d.note?'<div class="ln">'+esc(d.note)+'</div>':'')+(d.out.length?'<div class="ln">بعت: '+lines(d.out)+'</div>':'')+(d.in.length?'<div class="ln">اشتريت: '+lines(d.in)+'</div>':'')+
+     '<div class="ln">نقد: <span class="num '+cl(k.cash)+'">'+sg(k.cash)+'</span> · فرق الوزن 21: <span class="num '+cl(k.gold)+'">'+sg(k.gold)+' جم</span></div>'+
+     '<div class="acts"><button class="btn sm" data-act="edit">تعديل</button><button class="btn sm bad" data-act="del">حذف</button></div></div>'}).join('')+'</div>';
+}
+function renderAll(){renderHome();renderCalc();renderStock();renderLog();if(!F)newForm();renderAdd();syncCur()}
+function syncCur(){document.querySelectorAll('[data-cur]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.cur===cfg.cur?'true':'false')})}
+function showTab(t){
+  tab=t;
+  ['home','add','stock','calc','log'].forEach(function(x){$('#v-'+x).hidden=x!==t});
+  document.querySelectorAll('nav [data-tab]').forEach(function(b){if(b.dataset.tab===t)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  window.scrollTo(0,0);
+}
+
+/* ---------- export ---------- */
+function download(name,text,type){var b=new Blob(['﻿'+text],{type:type});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}
+function exportCsv(){
+  var rows=[['التاريخ','العملة','ملاحظة','بعت','اشتريت','سعر البيع','سعر الشراء','النقد','فرق الوزن 21','الربح']];
+  deals.slice().sort(function(a,b){return a.date<b.date?-1:1}).forEach(function(d){var k=calc(d);
+    rows.push([d.date,d.cur,d.note||'',d.out.map(function(p){return (p.name||'قطعة')+' '+p.k+'ك '+p.w+'جم'}).join(' + '),d.in.map(function(p){return (p.name||'قطعة')+' '+p.k+'ك '+p.w+'جم'}).join(' + '),d.pSell,d.pBuy,r2(k.cash),r2(k.gold),r2(k.profit)])});
+  download('gold-deals.csv',rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"'}).join(',')}).join('\r\n'),'text/csv;charset=utf-8');
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  if(b.dataset.tab){showTab(b.dataset.tab);return}
+  if(b.dataset.cur){if(cfg.cur===b.dataset.cur)return;cfg.cur=b.dataset.cur;saveAll();F=null;newSP();renderAll();return}
+  var act=b.dataset.act;if(!act)return;
+  if(act==='add'){F[b.dataset.side].push(newLeg(b.dataset.side));renderAdd();return}
+  if(act==='rm'){var r=b.closest('.pc');F[r.dataset.side].splice(+r.dataset.i,1);renderAdd();return}
+  if(act==='reset'){newForm();renderAdd();return}
+  if(act==='save'){submitDeal();return}
+  if(act==='csv'){exportCsv();return}
+  if(act==='backup'){download('gold-backup.json',JSON.stringify(snapshot()),'application/json');return}
+  if(act==='restore'){$('#fileIn').click();return}
+  if(act==='syncnow'){syncPush().then(syncPull);return}
+  if(act==='mkbin'){var k=$('#sKey').value.trim();if(k)lsSet('gold_key',k);createBin();return}
+  if(act==='joinbin'){var id=$('#sJoin').value.trim(),k2=$('#sKey')?$('#sKey').value.trim():'';if(k2)lsSet('gold_key',k2);if(!id||!skey()){toast('اكتب المفتاح ورقم المخزن');return}lsSet('gold_bin',id);dirty=false;lastTs=0;syncPull().then(renderHome);return}
+  if(act==='savepc'){SP.name=$('#sName').value;SP.k=+$('#sK').value;SP.w=$('#sW').value;SP.cost=$('#sC').value;savePiece();return}
+  var it=b.closest('.item');
+  if(act==='sellpc'&&it){newForm();F.out=[{pid:it.dataset.pid,name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}];F.in=[];fillLinked(F.out[0]);renderAdd();showTab('add');return}
+  if(act==='editpc'&&it){var p=byId(pieces,it.dataset.pid);SP={id:p.id,name:p.name,k:p.k,w:String(p.w),cost:String(p.cost),date:p.date};renderStock();$('#spBox').open=true;$('#spBox').scrollIntoView();return}
+  if(act==='delpc'&&it){confirmTap(b,function(){pieces=pieces.filter(function(x){return x.id!==it.dataset.pid});saveAll();renderStock();renderHome()});return}
+  if(act==='edit'&&it){var d=byId(deals,it.dataset.id);if(d){formFromDeal(d);renderAdd();showTab('add')}return}
+  if(act==='del'&&it){confirmTap(b,function(){
+    var bl=blocked(it.dataset.id);if(bl){toast('القطعة "'+bl.name+'" اتباعت في عملية لاحقة');return}
+    revertDeal(it.dataset.id);deals=deals.filter(function(x){return x.id!==it.dataset.id});saveAll();renderAll();toast('تم الحذف')});return}
+});
+function confirmTap(b,fn){
+  if(b.dataset.arm){fn();return}
+  b.dataset.arm='1';var t=b.textContent;b.textContent='اضغط للتأكيد';setTimeout(function(){if(b.isConnected){delete b.dataset.arm;b.textContent=t}},3000);
+}
+function fillLinked(leg){var pc=byId(pieces,leg.pid);if(pc){leg.name=pc.name;leg.k=pc.k;leg.w=String(pc.w)}}
+document.addEventListener('input',function(e){
+  var t=e.target,pc=t.closest&&t.closest('.pc');
+  if(pc&&t.dataset.f&&t.dataset.f!=='pid'&&t.dataset.f!=='k'){F[pc.dataset.side][+pc.dataset.i][t.dataset.f]=t.value;updateSum();return}
+  if(t.id==='fDate')F.date=t.value;else if(t.id==='fNote')F.note=t.value;
+  else if(t.id==='fSell'){F.pSell=t.value;updateSum()}else if(t.id==='fBuy'){F.pBuy=t.value;updateSum()}else if(t.id==='fCash'){F.cash=t.value;updateSum()}
+  else if(/^c\d|^cP$/.test(t.id))runCalc();
+});
+document.addEventListener('change',function(e){
+  var t=e.target,c=cfg.cur,pc=t.closest&&t.closest('.pc');
+  if(pc&&t.dataset.f==='k'){F[pc.dataset.side][+pc.dataset.i].k=+t.value;updateSum();return}
+  if(pc&&t.dataset.f==='pid'){var leg=F.out[+pc.dataset.i];leg.pid=t.value;if(leg.pid)fillLinked(leg);else{leg.name='';leg.w=''}renderAdd();return}
+  if(/^c\d|^cP$/.test(t.id)){runCalc();return}
+  if(t.id==='fileIn'){var f=t.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var s=JSON.parse(rd.result);if(!s.deals&&!s.pieces)throw 0;applySnapshot(s);s.ts=Date.now();lastTs=s.ts;saveAll();newForm();renderAll();toast('تم الاسترجاع')}catch(x){toast('ملف غير صالح')}};rd.readAsText(f);return}
+  var map={sOz:function(){cfg.ounce=n(t.value)},sSar:function(){cfg.usdsar=n(t.value)},sEgp:function(){cfg.usdegp=n(t.value)},sLoc:function(){cfg.local[c]=n(t.value)},sSp:function(){cfg.spread[c]=n(t.value)},sMk:function(){cfg.making[c]=n(t.value)}};
+  if(map[t.id]){map[t.id]();saveAll();var open=$('#setBox').open;renderHome();$('#setBox').open=open;renderCalc();renderStock();toast('تم الحفظ')}
+});
+
+/* ---------- boot ---------- */
+loadLocal();
+try{var lv=JSON.parse(lsGet('gold_live')||'null');if(lv)live=lv;live.ok=false}catch(e){}
+newForm();newSP();renderAll();showTab('home');
+fetchLive();setInterval(fetchLive,300000);
+syncPull();setInterval(syncPull,20000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden){syncPull();fetchLive()}});
+if(dirty&&sbin())syncPush();
+if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0)navigator.serviceWorker.register('sw.js').catch(function(){});
+})();
+</script>
+</body>
+</html>
