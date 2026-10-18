@@ -153,6 +153,7 @@ function pk(k,c){return p21(c)*k/21}
 
 /* ---------- math ---------- */
 function legVal(p,P){var w=n(p.w);return w*P*(+p.k)/21+w*n(p.m)}
+function inVal(p,P){return n(p.total)>0?n(p.total):legVal(p,P)}
 function leg21(p){return n(p.w)*(+p.k)/21}
 function legBasis(p,pBuy){ /* تكلفة القطعة الخارجة */
   if(p.pid){var pc=byId(pieces,p.pid);if(pc)return n(pc.cost);return n(p.basis)}
@@ -162,7 +163,8 @@ function legBasis(p,pBuy){ /* تكلفة القطعة الخارجة */
 function calc(d){
   var sell=0,buy=0,o21=0,i21=0,basis=0;
   d.out.forEach(function(p){sell+=legVal(p,n(d.pSell));o21+=leg21(p);basis+=legBasis(p,n(d.pBuy))});
-  d.in.forEach(function(p){buy+=legVal(p,n(d.pBuy));i21+=leg21(p)});
+  if(n(d.sellTotal)>0)sell=n(d.sellTotal);
+  d.in.forEach(function(p){buy+=inVal(p,n(d.pBuy));i21+=leg21(p)});
   var exp=sell-buy, manual=!(d.cash===''||d.cash==null), cash=manual?n(d.cash):exp;
   return {sell:sell,buy:buy,exp:exp,cash:cash,gold:i21-o21,o21:o21,i21:i21,basis:basis,profit:d.out.length?sell-basis:0};
 }
@@ -228,16 +230,16 @@ async function fetchLive(){
 function subLine(){var P=p21(cfg.cur);return P?('عيار 21: '+fmt(P)+' '+CURN[cfg.cur]+' / جم'):'أدخل سعر الذهب للبدء'}
 
 /* ---------- forms ---------- */
-function newLeg(side){return side==='out'?{pid:'',name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}:{name:'',k:21,w:'',m:''}}
+function newLeg(side){return side==='out'?{pid:'',name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}:{name:'',k:21,w:'',m:'',total:''}}
 function newForm(){
   var s=p21(cfg.cur),b=p21buy(cfg.cur);
-  F={id:null,date:today(),note:'',cur:cfg.cur,pSell:s?String(r2(s)):'',pBuy:b?String(r2(b)):'',out:[newLeg('out')],in:[newLeg('in')],cash:''};
+  F={id:null,date:today(),note:'',cur:cfg.cur,pSell:s?String(r2(s)):'',pBuy:b?String(r2(b)):'',sellTotal:'',out:[newLeg('out')],in:[newLeg('in')],cash:''};
 }
 function formFromDeal(d){
   var k=calc(d),man=Math.abs(k.cash-k.exp)>0.005;
-  F={id:d.id,date:d.date,note:d.note||'',cur:d.cur,pSell:String(d.pSell),pBuy:String(d.pBuy),
+  F={id:d.id,date:d.date,note:d.note||'',cur:d.cur,pSell:String(d.pSell),pBuy:String(d.pBuy),sellTotal:d.sellTotal?String(d.sellTotal):'',
      out:d.out.map(function(p){return {pid:p.pid||'',name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||''),cost:p.pid?'':(p.cost?String(p.cost):'')}}),
-     in:d.in.map(function(p){return {name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||'')}}),
+     in:d.in.map(function(p){return {name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||''),total:p.total?String(p.total):''}}),
      cash:man?String(r2(k.cash)):''};
 }
 function stockOptions(sel,usedIds){
@@ -256,6 +258,7 @@ function legHtml(side,i,p){
    '<div class="row3"><div><label>العيار</label><select data-f="k"'+(linked?' disabled':'')+'>'+kOpts(p.k)+'</select></div>'+
    '<div><label>الوزن (جم)</label><input data-f="w" inputmode="decimal" value="'+esc(p.w)+'"'+(linked?' disabled':'')+'></div>'+
    '<div><label>'+(side==='out'?'مصنعيتك/جم':'مصنعية مدفوعة/جم')+'</label><input data-f="m" inputmode="decimal" value="'+esc(p.m)+'"></div></div>'+
+   (side==='in'?'<div class="f"><label>إجمالي المبلغ المدفوع في القطعة (اختياري، يلغي حساب السعر × الوزن)</label><input data-f="total" inputmode="decimal" value="'+esc(p.total)+'"></div>':'')+
    (side==='out'&&!linked?'<div class="f"><label>تكلفتك فيها (اختياري، لو فاضي = خام بسعر الشراء)</label><input data-f="cost" inputmode="decimal" value="'+esc(p.cost)+'"></div>':'')+
    '<div class="pv"><span>القيمة</span><b class="num" data-pv>0.00</b>'+(side==='out'?'<span>التكلفة</span><b class="num" data-bs>0.00</b>':'')+'</div></div>';
 }
@@ -267,7 +270,8 @@ function renderAdd(){
     '<div class="row"><div class="f"><label for="fSell">سعر جرام 21 للبيع</label><input id="fSell" inputmode="decimal" value="'+esc(F.pSell)+'"></div>'+
     '<div class="f"><label for="fBuy">سعر جرام 21 للشراء</label><input id="fBuy" inputmode="decimal" value="'+esc(F.pBuy)+'"></div></div></div>'+
    '<div class="card"><div class="side-h"><b>قطع بعتها</b><button class="btn sm" data-act="add" data-side="out">+ قطعة</button></div>'+
-     F.out.map(function(p,i){return legHtml('out',i,p)}).join('')+'</div>'+
+     F.out.map(function(p,i){return legHtml('out',i,p)}).join('')+
+     '<div class="f"><label for="fSellTotal">إجمالي سعر البيع لكل القطع دي (اختياري، يلغي حساب السعر × الوزن)</label><input id="fSellTotal" inputmode="decimal" value="'+esc(F.sellTotal)+'"></div></div>'+
    '<div class="card"><div class="side-h"><b>قطع اشتريتها (تدخل المخزون)</b><button class="btn sm" data-act="add" data-side="in">+ قطعة</button></div>'+
      F.in.map(function(p,i){return legHtml('in',i,p)}).join('')+'</div>'+
    '<div class="card"><h2>الحساب</h2><div id="sum"></div>'+
@@ -278,10 +282,10 @@ function renderAdd(){
   updateSum();
 }
 function updateSum(){
-  var d={pSell:F.pSell,pBuy:F.pBuy,out:F.out,in:F.in,cash:F.cash},k=calc(d);
+  var d={pSell:F.pSell,pBuy:F.pBuy,sellTotal:F.sellTotal,out:F.out,in:F.in,cash:F.cash},k=calc(d);
   document.querySelectorAll('#v-add .pc').forEach(function(r){
     var s=r.dataset.side,p=F[s][+r.dataset.i];if(!p)return;
-    $('[data-pv]',r).textContent=fmt(legVal(p,n(s==='out'?F.pSell:F.pBuy)));
+    $('[data-pv]',r).textContent=fmt(s==='out'?legVal(p,n(F.pSell)):inVal(p,n(F.pBuy)));
     var bs=$('[data-bs]',r);if(bs)bs.textContent=fmt(legBasis(p,n(F.pBuy)));
   });
   $('#sum').innerHTML='<div class="res">'+
@@ -307,6 +311,7 @@ function submitDeal(){
   if(F.id){var b=blocked(F.id);if(b){toast('القطعة "'+(b.name||'')+'" اتباعت في عملية لاحقة، عدّل تلك أولًا');return}revertDeal(F.id)}
   var id=F.id||('d'+Date.now());
   var d={id:id,date:F.date||today(),note:F.note.trim(),cur:F.cur,pSell:n(F.pSell),pBuy:n(F.pBuy),cash:null,ts:Date.now(),out:[],in:[]};
+  if(n(F.sellTotal)>0)d.sellTotal=n(F.sellTotal);
   out.forEach(function(p){
     var leg={pid:p.pid||'',name:p.name.trim(),k:+p.k,w:n(p.w),m:n(p.m)};
     if(p.pid){var pc=byId(pieces,p.pid);if(pc){leg.name=pc.name;leg.k=pc.k;leg.w=n(pc.w);leg.basis=n(pc.cost);pc.status='sold';pc.soldDeal=id}}
@@ -314,10 +319,10 @@ function submitDeal(){
     d.out.push(leg);
   });
   inn.forEach(function(p,i){
-    var leg={name:p.name.trim(),k:+p.k,w:n(p.w),m:n(p.m)};d.in.push(leg);
-    pieces.push({id:id+'_'+i,name:leg.name||'قطعة',k:leg.k,w:leg.w,cost:r2(legVal(leg,d.pBuy)),date:d.date,cur:d.cur,status:'stock',srcDeal:id,soldDeal:null});
+    var leg={name:p.name.trim(),k:+p.k,w:n(p.w),m:n(p.m)};if(n(p.total)>0)leg.total=n(p.total);d.in.push(leg);
+    pieces.push({id:id+'_'+i,name:leg.name||'قطعة',k:leg.k,w:leg.w,cost:r2(inVal(leg,d.pBuy)),date:d.date,cur:d.cur,status:'stock',srcDeal:id,soldDeal:null});
   });
-  d.cash=r2(calc({pSell:d.pSell,pBuy:d.pBuy,out:d.out,in:d.in,cash:F.cash}).cash);
+  d.cash=r2(calc({pSell:d.pSell,pBuy:d.pBuy,sellTotal:d.sellTotal,out:d.out,in:d.in,cash:F.cash}).cash);
   deals=deals.filter(function(x){return x.id!==id});deals.push(d);
   saveAll();toast('تم الحفظ');newForm();renderAll();showTab('log');
 }
@@ -484,6 +489,7 @@ document.addEventListener('input',function(e){
   var t=e.target,pc=t.closest&&t.closest('.pc');
   if(pc&&t.dataset.f&&t.dataset.f!=='pid'&&t.dataset.f!=='k'){F[pc.dataset.side][+pc.dataset.i][t.dataset.f]=t.value;updateSum();return}
   if(t.id==='fDate')F.date=t.value;else if(t.id==='fNote')F.note=t.value;
+  else if(t.id==='fSellTotal'){F.sellTotal=t.value;updateSum()}
   else if(t.id==='fSell'){F.pSell=t.value;updateSum()}else if(t.id==='fBuy'){F.pBuy=t.value;updateSum()}else if(t.id==='fCash'){F.cash=t.value;updateSum()}
   else if(/^c\d|^cP$/.test(t.id))runCalc();
 });
