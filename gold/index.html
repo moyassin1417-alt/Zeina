@@ -368,7 +368,9 @@ function renderHome(){
   L.forEach(function(d){var k=calc(d);prof+=k.profit;cash+=k.cash});
   var S=stockList(c),w21=0,cost=0,mkt=0;
   S.forEach(function(p){w21+=n(p.w)*p.k/21;cost+=n(p.cost);mkt+=pieceMarket(p,c)});
-  var unreal=P?mkt-cost:0;
+  var unreal=P?mkt-cost:0, openG=0;
+  L.forEach(function(d){d.out.forEach(function(p){if(!p.pid)openG+=n(p.w)*(+p.k)/21})});
+  var eqG=P?w21+cash/P-openG:0;
   var g=g24(c),lcl=cfg.local[c]>0,prem=(lcl&&g>0)?(cfg.local[c]/(g*21/24)-1)*100:null;
   var rows=KARATS.map(function(k){return '<tr><td><span class="kbadge">'+k+'</span></td><td class="r num">'+(g?fmt(g*k/24):'—')+'</td><td class="r num"><b>'+(P?fmt(pk(k,c)):'—')+'</b></td><td class="r num">'+(P?fmt(p21buy(c)*k/21):'—')+'</td></tr>'}).join('');
   var months={};L.forEach(function(d){var m=d.date.slice(0,7),k=calc(d);months[m]=(months[m]||0)+k.profit});
@@ -381,6 +383,12 @@ function renderHome(){
    '<div class="sub"><span>'+L.length+' عملية</span><span>·</span><span>فرق تقييم المخزون: <b class="num">'+(P?sg(unreal):'—')+'</b></span></div></div>'+
    '<div class="grid2"><div class="stat"><div class="l">صافي النقد من العمليات</div><div class="v num '+cl(cash)+'">'+sg(cash)+'</div></div>'+
    '<div class="stat"><div class="l">مخزونك (مكافئ 21)</div><div class="v num">'+fmt(w21)+' جم</div></div></div>'+
+   (openG>0&&P?'<div class="card"><h2>الميزان بالوزن (مكافئ 21)</h2><div class="res" style="margin-top:0">'+
+     '<div><span>وزن البداية (قطع قديمة بعتها)</span><b class="num">'+fmt(openG)+' جم</b></div>'+
+     '<div><span>مخزونك الحالي</span><b class="num">'+fmt(w21)+' جم</b></div>'+
+     '<div><span>صافي النقد '+(cash<0?'اللي دفعته':'اللي استلمته')+' (بسعر اليوم)</span><b class="num '+cl(cash)+'">'+sg(cash/P)+' جم</b></div>'+
+     '<div class="tot"><span>مكسبك بالوزن</span><b class="num '+cl(eqG)+'">'+sg(eqG)+' جم</b></div></div>'+
+     '<p class="note" style="margin:8px 0 0">= المخزون الحالي + النقد بالجرامات − وزن البداية. يعني لو بعت كل حاجة النهارده.</p></div>':'')+
    '<div class="card"><h2>أسعار الجرام ('+CURN[c]+') <span class="live '+(live.ok?'on':'')+'" style="float:left"><i></i>'+liveTxt+'</span></h2>'+
    (P?'<table><thead><tr><th>العيار</th><th class="r">عالمي</th><th class="r">بيع</th><th class="r">شراء</th></tr></thead><tbody>'+rows+'</tbody></table>'+
      (prem!=null?'<p class="note" style="margin:8px 0 0">السوق المحلي أعلى من العالمي بنسبة <b class="num">'+sg(prem)+'%</b> (عيار 21)</p>':''):
