@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#14161A">
+<meta name="theme-color" content="#0C0D0F">
 <title>دفتر الذهب</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -11,90 +11,124 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&family=Reem+Kufi:wght@600&display=swap">
 <style>
+/* Dark luxury ledger: near-black ground, warm ivory text, one gold gradient used for emphasis only */
 :root{
-  --bg:#ECEEF0; --surface:#FFFFFF; --ink:#16191D; --mute:#5C636B; --line:#D8DCE0;
-  --brass:#8F6310; --brass-fill:#D4A22A; --brass-soft:#F3E8CC;
-  --pos:#1B7549; --neg:#B0342A; --field:#F6F7F8;
+  --bg:#0C0D0F; --surface:#15171A; --surface2:#1C1F23; --line:#2A2D32; --field:#101215;
+  --ink:#F2EFE8; --mute:#9A978F; --gold:#D8AE4A; --gold-hi:#F3D58B; --gold-lo:#9C7424; --gold-soft:rgba(216,174,74,.12);
+  --pos:#5AD19A; --neg:#F2817A;
+  --brass:#D8AE4A; --brass-fill:#D8AE4A; --brass-soft:rgba(216,174,74,.14);
+  --gold-grad:linear-gradient(135deg,#F3D58B 0%,#D8AE4A 48%,#9C7424 100%);
   --ui:'IBM Plex Sans Arabic','Segoe UI',Tahoma,sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
   --disp:'Reem Kufi','IBM Plex Sans Arabic',sans-serif;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme:dark){:root{
-  --bg:#101215; --surface:#181B1F; --ink:#ECEDEF; --mute:#9AA1AA; --line:#2A2F35;
-  --brass:#E2B64C; --brass-fill:#C99A2B; --brass-soft:#2B2414;
-  --pos:#4CC38A; --neg:#F0766B; --field:#1F2328; color-scheme:dark}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{direction:rtl}
+html{direction:rtl;background:var(--bg)}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.55;
-  padding:env(safe-area-inset-top,0) max(16px,env(safe-area-inset-right,0px)) 92px max(16px,env(safe-area-inset-left,0px))}
+  padding:env(safe-area-inset-top,0) max(16px,env(safe-area-inset-right,0px)) 96px max(16px,env(safe-area-inset-left,0px))}
 .wrap{max-width:560px;margin-inline:auto}
-header{position:sticky;top:0;z-index:20;background:var(--bg);padding-block:14px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-h1{font-family:var(--disp);font-size:24px;margin:0;font-weight:600}
-h1 small{display:block;font-family:var(--ui);font-size:12px;color:var(--mute);font-weight:400}
-.home-link{font-size:13px;font-weight:600;color:var(--brass);text-decoration:none;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:6px 10px;white-space:nowrap}
-.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:2px}
-.seg button{border:0;background:none;color:var(--mute);font:inherit;font-weight:500;padding:5px 12px;border-radius:7px;cursor:pointer;min-height:34px}
-.seg button[aria-pressed="true"]{background:var(--brass);color:var(--surface)}
+header{position:sticky;top:0;z-index:20;background:linear-gradient(var(--bg) 78%,transparent);padding-block:14px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+h1{font-family:var(--disp);font-size:26px;margin:0;font-weight:600;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.2}
+h1 small{display:block;font-family:var(--ui);font-size:12px;color:var(--mute);font-weight:400;-webkit-text-fill-color:var(--mute)}
+.home-link{font-size:13px;font-weight:600;color:var(--gold);text-decoration:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;white-space:nowrap}
+.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:2px}
+.seg button{border:0;background:none;color:var(--mute);font:inherit;font-weight:500;padding:5px 14px;border-radius:99px;cursor:pointer;min-height:34px}
+.seg button[aria-pressed="true"]{background:var(--gold-grad);color:#16130A;font-weight:600}
 section[hidden]{display:none}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-block:12px}
-.card h2{font-size:14px;margin:0 0 10px;color:var(--mute);font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-block:12px}
+.card h2{font-size:13px;margin:0 0 10px;color:var(--mute);font-weight:500;letter-spacing:.2px}
 .num{font-family:var(--mono);direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums;font-weight:500}
+.amt{display:inline-flex;direction:ltr;unicode-bidi:isolate;gap:5px;align-items:baseline;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.amt b{font-weight:500}.amt i{font-style:normal;font-family:var(--ui);font-size:.72em;color:var(--mute)}
 .pos{color:var(--pos)} .neg{color:var(--neg)}
-.hero{background:var(--ink);color:var(--bg);border-radius:14px;padding:18px;margin-block:8px 12px}
-.hero .lbl{font-size:13px;opacity:.75}
-.hero .big{font-family:var(--mono);direction:ltr;unicode-bidi:isolate;font-size:34px;font-weight:600;line-height:1.2;margin-block:4px}
-.hero .sub{font-size:13px;opacity:.85;display:flex;gap:6px;flex-wrap:wrap}
-.hero .big.pos{color:#59D399}.hero .big.neg{color:#FF8D82}
+/* price board */
+.board{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 14px 16px;margin-block:6px 12px}
+.board .top{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--mute)}
+.live{display:inline-flex;align-items:center;gap:6px}.live i{width:7px;height:7px;border-radius:50%;background:var(--mute)}.live.on i{background:var(--pos);box-shadow:0 0 0 3px rgba(90,209,154,.18)}
+.chips{display:flex;gap:6px;margin-block:12px 10px;overflow-x:auto;scrollbar-width:none}
+.chip{flex:1;min-width:44px;border:1px solid var(--line);background:var(--surface2);color:var(--mute);border-radius:99px;font:inherit;font-family:var(--mono);font-weight:600;min-height:38px;cursor:pointer}
+.chip.on{background:var(--gold-grad);border-color:transparent;color:#16130A}
+.board .big{font-family:var(--mono);direction:ltr;unicode-bidi:isolate;font-size:40px;font-weight:600;line-height:1.1;background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent;text-align:center}
+.board .big small{font-family:var(--ui);font-size:14px;-webkit-text-fill-color:var(--mute);margin-inline-start:6px}
+.board .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.board .cols div{background:var(--surface2);border-radius:12px;padding:8px 10px;text-align:center}
+.board .cols span{display:block;font-size:12px;color:var(--mute)}
+/* hero */
+.hero{position:relative;overflow:hidden;background:radial-gradient(120% 140% at 100% 0%,rgba(216,174,74,.20),transparent 55%),var(--surface);border:1px solid rgba(216,174,74,.35);border-radius:18px;padding:18px;margin-block:12px}
+.hero .lbl{font-size:13px;color:var(--mute)}
+.hero .big{font-family:var(--mono);direction:ltr;unicode-bidi:isolate;font-size:36px;font-weight:600;line-height:1.2;margin-block:4px}
+.hero .sub{font-size:13px;color:var(--mute);display:flex;gap:6px;flex-wrap:wrap}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0}
 .stat .l{font-size:12.5px;color:var(--mute)} .stat .v{font-size:19px;margin-top:2px}
+/* weight meter */
+.meter{position:relative;height:10px;border-radius:99px;background:var(--surface2);margin-block:14px 8px}
+.meter .mf{position:absolute;inset-block:0;inset-inline-start:0;border-radius:99px;background:var(--gold-grad)}
+.meter .mt{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);border-radius:2px}
+.meter-l{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mute)}
+.gainpill{display:inline-block;margin-top:8px;border-radius:99px;padding:3px 12px;font-family:var(--mono);font-weight:600;font-size:14px;background:rgba(90,209,154,.12);color:var(--pos)}
+.gainpill.neg{background:rgba(242,129,122,.12);color:var(--neg)}
 table{width:100%;border-collapse:collapse}
 th{font-size:12px;color:var(--mute);font-weight:500;text-align:start;padding:6px 4px;border-bottom:1px solid var(--line)}
 td{padding:8px 4px;border-bottom:1px solid var(--line)} tr:last-child td{border-bottom:0}
 td.r,th.r{text-align:end}
-.kbadge{display:inline-block;min-width:38px;text-align:center;background:var(--brass-soft);color:var(--brass);border-radius:6px;font-family:var(--mono);font-weight:600;padding:1px 6px}
+.kbadge{display:inline-block;min-width:38px;text-align:center;background:var(--gold-soft);color:var(--gold);border-radius:99px;font-family:var(--mono);font-weight:600;padding:1px 8px}
 label{display:block;font-size:12.5px;color:var(--mute);margin-bottom:3px}
-input,select{width:100%;min-height:42px;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:9px;padding:8px 10px;font:inherit;font-size:16px}
+input,select{width:100%;min-height:44px;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:12px;padding:8px 12px;font:inherit;font-size:16px}
 input[inputmode]{font-family:var(--mono);direction:ltr;text-align:right}
-input:disabled{opacity:.65}
-input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+input:disabled{opacity:.6}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 .row{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
 .row3{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr))}
 .f{margin-block:8px;min-width:0}
-.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
-.btn.main{background:var(--brass);border-color:var(--brass);color:var(--surface)}
-.btn.sm{min-height:36px;padding:4px 12px;font-size:13.5px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+.btn.main{background:var(--gold-grad);border-color:transparent;color:#16130A}
+.btn.sm{min-height:36px;padding:4px 14px;font-size:13.5px}
 .btn.bad{color:var(--neg)} .btn.wide{width:100%}
-.res{background:var(--field);border-radius:10px;padding:10px 12px;margin-top:10px}
+.res{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
 .res div{display:flex;justify-content:space-between;gap:10px;padding:3px 0}
 .res .tot{border-top:1px dashed var(--line);margin-top:4px;padding-top:7px;font-weight:600;font-size:16px}
-.pc{border:1px solid var(--line);border-radius:10px;padding:10px;margin-block:8px;background:var(--field)}
+.pc{border:1px solid var(--line);border-radius:14px;padding:10px;margin-block:8px;background:var(--field)}
 .pc .top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
 .pc .row3{margin-top:8px}
 .pc .x{border:0;background:none;color:var(--neg);font-size:22px;cursor:pointer;min-width:40px;min-height:40px}
 .pc .pv{font-size:13px;color:var(--mute);margin-top:6px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .side-h{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
-.tag{font-size:11.5px;padding:1px 8px;border-radius:99px;background:var(--brass-soft);color:var(--brass);font-weight:600}
+.tag{font-size:11.5px;padding:1px 10px;border-radius:99px;background:var(--gold-soft);color:var(--gold);font-weight:600}
 details summary{cursor:pointer;font-weight:600;min-height:36px;display:flex;align-items:center;justify-content:space-between}
-.item{padding:12px 0;border-bottom:1px solid var(--line)} .item:last-child{border-bottom:0}
-.item .h{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
-.item .ln{font-size:13.5px;color:var(--mute);margin-top:3px}
-.item .acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-.bars{display:grid;gap:7px}
-.bar{display:grid;grid-template-columns:62px 1fr 84px;gap:8px;align-items:center;font-size:13px}
-.bar .t{height:10px;background:var(--field);border-radius:5px;position:relative;overflow:hidden}
-.bar .t i{position:absolute;top:0;bottom:0;right:0;border-radius:5px}
 .note{font-size:12.5px;color:var(--mute)}
 .empty{text-align:center;color:var(--mute);padding:26px 8px}
-.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mute)}
-.live i{width:8px;height:8px;border-radius:50%;background:var(--mute)} .live.on i{background:var(--pos)}
-nav{position:fixed;bottom:0;left:0;right:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:62px 1fr 92px;gap:8px;align-items:center;font-size:13px}
+.bar .t{height:8px;background:var(--surface2);border-radius:5px;position:relative;overflow:hidden}
+.bar .t i{position:absolute;top:0;bottom:0;inset-inline-start:0;border-radius:5px}
+/* timeline log */
+.mh{display:flex;justify-content:space-between;align-items:baseline;margin:20px 2px 8px}
+.mh b{font-family:var(--disp);font-size:18px;font-weight:600;color:var(--ink)}
+.mh span{font-size:12.5px;color:var(--mute)}
+.dr{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-block:8px;overflow:hidden;cursor:pointer}
+.dr .hd{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px}
+.badge{width:46px;text-align:center;border-radius:10px;padding:5px 0;font-size:12.5px;font-weight:600;background:var(--gold-soft);color:var(--gold)}
+.badge.sell{background:rgba(90,209,154,.12);color:var(--pos)} .badge.swap{background:rgba(120,160,255,.14);color:#9DB7FF}
+.dr .tt{min-width:0}.dr .tt b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dr .tt span{font-size:12.5px;color:var(--mute)}
+.dr .rt{text-align:end;font-size:16px}.dr .rt small{display:block;font-family:var(--ui);font-size:11.5px;color:var(--mute)}
+.dr .more{display:none;padding:0 12px 12px;border-top:1px solid var(--line);font-size:13.5px;color:var(--mute)}
+.dr.open .more{display:block}.dr .more p{margin:8px 0 0}
+.dr .acts{display:flex;gap:8px;margin-top:12px}
+/* stock */
+.pcard{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;margin-block:10px}
+.medal{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:18px;color:#16130A;background:var(--gold-grad);box-shadow:inset 0 0 0 3px rgba(0,0,0,.18)}
+.pcard .h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.pcard .h b{font-weight:600}
+.pcard .ln{font-size:13px;color:var(--mute);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:2px}
+.pcard .acts{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:25;background:rgba(21,23,26,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);
   padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
 nav .in{max-width:560px;margin-inline:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
-nav button{border:0;background:none;color:var(--mute);font:inherit;font-size:12px;font-weight:500;min-height:50px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
-nav button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-nav button[aria-current="page"]{color:var(--brass);background:var(--brass-soft)}
-.toast{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:99px;font-size:14px;z-index:40;max-width:90vw}
+nav button{border:0;background:none;color:var(--mute);font:inherit;font-size:12px;font-weight:500;min-height:50px;border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+nav button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+nav button[aria-current="page"]{color:var(--gold);background:var(--gold-soft)}
+.toast{position:fixed;bottom:calc(88px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--gold-grad);color:#16130A;font-weight:600;padding:9px 18px;border-radius:99px;font-size:14px;z-index:40;max-width:90vw}
 </style>
 </head>
 <body>
@@ -334,25 +368,24 @@ function newSP(){SP={id:null,name:'',k:21,w:'',cost:'',date:today()}}
 function renderStock(){
   var c=cfg.cur,L=stockList(c),w21=0,cost=0,mkt=0;
   L.forEach(function(p){w21+=n(p.w)*p.k/21;cost+=n(p.cost);mkt+=pieceMarket(p,c)});
-  var rows=L.map(function(p){
+  var cards=L.map(function(p){
     var m=pieceMarket(p,c),u=m-n(p.cost);
-    return '<div class="item" data-pid="'+p.id+'"><div class="h"><b>'+esc(p.name)+' <span class="kbadge">'+p.k+'</span></b><span class="num">'+fmt(n(p.w))+' جم</span></div>'+
-     '<div class="ln">تكلفة: <span class="num">'+fmt(n(p.cost))+'</span> · خام اليوم: <span class="num">'+fmt(m)+'</span> · <span class="num '+cl(u)+'">'+sg(u)+'</span></div>'+
-     '<div class="ln">'+p.date+'</div>'+
+    return '<div class="pcard" data-pid="'+p.id+'"><div class="medal">'+p.k+'</div><div><div class="h"><b>'+esc(p.name)+'</b>'+amt(n(p.w),'جم',false)+'</div>'+
+     '<div class="ln"><span>تكلفة '+amt(n(p.cost),'',false)+'</span><span>خام اليوم '+amt(m,'',false)+'</span><span>'+amt(u,'',true)+'</span></div></div>'+
      '<div class="acts"><button class="btn sm main" data-act="sellpc">بيع</button><button class="btn sm" data-act="editpc">تعديل</button><button class="btn sm bad" data-act="delpc">حذف</button></div></div>';
   }).join('');
   $('#v-stock').innerHTML=
    '<div class="grid2"><div class="stat"><div class="l">قطع في المخزون</div><div class="v num">'+L.length+'</div></div>'+
-   '<div class="stat"><div class="l">وزن المخزون (مكافئ 21)</div><div class="v num">'+fmt(w21)+' جم</div></div>'+
-   '<div class="stat"><div class="l">إجمالي التكلفة</div><div class="v num">'+fmt(cost)+'</div></div>'+
-   '<div class="stat"><div class="l">خام بسعر الشراء اليوم</div><div class="v num">'+(p21buy(c)?fmt(mkt):'—')+'</div></div></div>'+
-   '<div class="card">'+(rows||'<div class="empty">المخزون فاضي. القطع اللي تشتريها في العمليات بتدخل هنا تلقائيًا.</div>')+'</div>'+
+   '<div class="stat"><div class="l">وزن المخزون (مكافئ 21)</div><div class="v">'+amt(w21,'جم',false)+'</div></div>'+
+   '<div class="stat"><div class="l">إجمالي التكلفة</div><div class="v">'+amt(cost,'',false)+'</div></div>'+
+   '<div class="stat"><div class="l">خام بسعر الشراء اليوم</div><div class="v">'+(p21buy(c)?amt(mkt,'',false):'—')+'</div></div></div>'+
+   (cards||'<div class="card empty">المخزون فاضي. القطع اللي تشتريها في العمليات بتدخل هنا تلقائيًا.</div>')+
    '<details class="card" id="spBox"'+(SP&&SP.id?' open':'')+'><summary>'+(SP&&SP.id?'تعديل قطعة':'إضافة قطعة للمخزون (رصيد افتتاحي)')+'</summary>'+
     '<div class="f"><label for="sName">الوصف</label><input id="sName" value="'+esc(SP.name)+'"></div>'+
     '<div class="row3"><div class="f"><label for="sK">العيار</label><select id="sK">'+kOpts(SP.k)+'</select></div>'+
     '<div class="f"><label for="sW">الوزن</label><input id="sW" inputmode="decimal" value="'+esc(SP.w)+'"></div>'+
     '<div class="f"><label for="sC">التكلفة</label><input id="sC" inputmode="decimal" placeholder="اختياري" value="'+esc(SP.cost)+'"></div></div>'+
-    '<p class="note">لو سبت التكلفة فاضية تتحسب خام بسعر الشراء الحالي.</p>'+
+    '<p class="note">لو سبتي التكلفة فاضية تتحسب خام بسعر الشراء الحالي.</p>'+
     '<button class="btn main wide" data-act="savepc">'+(SP.id?'حفظ التعديل':'إضافة')+'</button></details>';
 }
 function savePiece(){
@@ -365,36 +398,41 @@ function savePiece(){
 
 /* ---------- home / calc / log ---------- */
 function myDeals(){return deals.filter(function(d){return d.cur===cfg.cur}).sort(function(a,b){return a.date===b.date?(b.ts||0)-(a.ts||0):(a.date<b.date?1:-1)})}
+var MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+var selK=21;
+function amt(v,unit,signed,c){var t=signed?sg(v):fmt(v);var k=c===undefined?(signed?cl(v):''):c;return '<span class="amt '+k+'"><b>'+t+'</b>'+(unit?'<i>'+unit+'</i>':'')+'</span>'}
 function renderHome(){
   var c=cfg.cur,P=p21(c),L=myDeals(),prof=0,cash=0;
   L.forEach(function(d){var k=calc(d);prof+=k.profit;cash+=k.cash});
   var S=stockList(c),w21=0,cost=0,mkt=0;
   S.forEach(function(p){w21+=n(p.w)*p.k/21;cost+=n(p.cost);mkt+=pieceMarket(p,c)});
-  var unreal=P?mkt-cost:0, openG=0;
+  var unreal=P?mkt-cost:0,openG=0;
   L.forEach(function(d){d.out.forEach(function(p){if(!p.pid)openG+=n(p.w)*(+p.k)/21})});
   var eqG=P?w21+cash/P-openG:0;
-  var g=g24(c),lcl=cfg.local[c]>0,prem=(lcl&&g>0)?(cfg.local[c]/(g*21/24)-1)*100:null;
-  var rows=KARATS.map(function(k){return '<tr><td><span class="kbadge">'+k+'</span></td><td class="r num">'+(g?fmt(g*k/24):'—')+'</td><td class="r num"><b>'+(P?fmt(pk(k,c)):'—')+'</b></td><td class="r num">'+(P?fmt(p21buy(c)*k/21):'—')+'</td></tr>'}).join('');
-  var months={};L.forEach(function(d){var m=d.date.slice(0,7),k=calc(d);months[m]=(months[m]||0)+k.profit});
+  var g=g24(c)*selK/24,kp=P?pk(selK,c):0,kb=P?p21buy(c)*selK/21:0;
+  var chips=KARATS.map(function(k){return '<button class="chip'+(k===selK?' on':'')+'" data-k="'+k+'">'+k+'</button>'}).join('');
+  var liveTxt=live.ok?('حي · '+new Date(live.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):'يدوي';
+  var months={};L.forEach(function(d){var m=d.date.slice(0,7);months[m]=(months[m]||0)+calc(d).profit});
   var ms=Object.keys(months).sort().reverse().slice(0,6),mx=Math.max.apply(null,ms.map(function(m){return Math.abs(months[m])}).concat([1]));
-  var bars=ms.map(function(m){var v=months[m];return '<div class="bar"><span class="num">'+m+'</span><span class="t"><i style="width:'+Math.abs(v)/mx*100+'%;background:'+(v<0?'var(--neg)':'var(--brass-fill)')+'"></i></span><span class="num '+cl(v)+'" style="text-align:end">'+sg(v)+'</span></div>'}).join('');
-  var liveTxt=live.ok?('حي · '+new Date(live.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):'يدوي (لا يوجد اتصال بالأسعار)';
+  var bars=ms.map(function(m){var v=months[m],mm=m.split('-');return '<div class="bar"><span>'+MONTHS[+mm[1]-1]+' '+mm[0].slice(2)+'</span><span class="t"><i style="width:'+Math.abs(v)/mx*100+'%;background:'+(v<0?'var(--neg)':'var(--gold-grad)')+'"></i></span><span style="text-align:end">'+amt(v,'',true)+'</span></div>'}).join('');
+  var mxw=Math.max(openG,w21,1)*1.1;
   var bin=sbin();
   $('#v-home').innerHTML=
-   '<div class="hero"><div class="lbl">ربح القطع المباعة ('+CURN[c]+')</div><div class="big '+cl(prof)+'">'+sg(prof)+'</div>'+
-   '<div class="sub"><span>'+L.length+' عملية</span><span>·</span><span>فرق تقييم المخزون: <b class="num">'+(P?sg(unreal):'—')+'</b></span></div></div>'+
-   '<div class="grid2"><div class="stat"><div class="l">صافي النقد من العمليات</div><div class="v num '+cl(cash)+'">'+sg(cash)+'</div></div>'+
-   '<div class="stat"><div class="l">مخزونك (مكافئ 21)</div><div class="v num">'+fmt(w21)+' جم</div></div></div>'+
-   (openG>0&&P?'<div class="card"><h2>الميزان بالوزن (مكافئ 21)</h2><div class="res" style="margin-top:0">'+
-     '<div><span>وزن البداية (قطع قديمة بعتها)</span><b class="num">'+fmt(openG)+' جم</b></div>'+
-     '<div><span>مخزونك الحالي</span><b class="num">'+fmt(w21)+' جم</b></div>'+
-     '<div><span>صافي النقد '+(cash<0?'اللي دفعته':'اللي استلمته')+' (بسعر اليوم)</span><b class="num '+cl(cash)+'">'+sg(cash/P)+' جم</b></div>'+
-     '<div class="tot"><span>مكسبك بالوزن</span><b class="num '+cl(eqG)+'">'+sg(eqG)+' جم</b></div></div>'+
-     '<p class="note" style="margin:8px 0 0">= المخزون الحالي + النقد بالجرامات − وزن البداية. يعني لو بعت كل حاجة النهارده.</p></div>':'')+
-   '<div class="card"><h2>أسعار الجرام ('+CURN[c]+') <span class="live '+(live.ok?'on':'')+'" style="float:left"><i></i>'+liveTxt+'</span></h2>'+
-   (P?'<table><thead><tr><th>العيار</th><th class="r">عالمي</th><th class="r">بيع</th><th class="r">شراء</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-     (prem!=null?'<p class="note" style="margin:8px 0 0">السوق المحلي أعلى من العالمي بنسبة <b class="num">'+sg(prem)+'%</b> (عيار 21)</p>':''):
-     '<div class="empty">اكتب سعر الأونصة أو سعر عيار 21 من الإعدادات.</div>')+'</div>'+
+   '<div class="board"><div class="top"><span class="live '+(live.ok?'on':'')+'"><i></i>'+liveTxt+'</span><span>سعر الجرام ('+CURN[c]+')</span></div>'+
+   '<div class="chips" role="group" aria-label="العيار">'+chips+'</div>'+
+   (P?'<div class="big">'+fmt(kp)+'<small>عيار '+selK+'</small></div>'+
+     '<div class="cols"><div><span>سعر الشراء</span>'+amt(kb,'',false)+'</div><div><span>العالمي</span>'+amt(g,'',false)+'</div></div>':
+     '<div class="empty">اكتبي سعر الأونصة من الإعدادات.</div>')+'</div>'+
+   '<div class="hero"><div class="lbl">ربح القطع المباعة</div><div class="big '+cl(prof)+'">'+amt(prof,CURN[c],true)+'</div>'+
+   '<div class="sub"><span>'+L.length+' عملية</span><span>·</span><span>فرق تقييم المخزون: '+(P?amt(unreal,'',true):'—')+'</span></div></div>'+
+   '<div class="grid2"><div class="stat"><div class="l">صافي النقد من العمليات</div><div class="v">'+amt(cash,'',true)+'</div></div>'+
+   '<div class="stat"><div class="l">مخزونك (مكافئ 21)</div><div class="v">'+amt(w21,'جم',false)+'</div></div></div>'+
+   (openG>0&&P?'<div class="card"><h2>الميزان بالوزن (مكافئ 21)</h2>'+
+     '<div class="meter"><i class="mf" style="width:'+(w21/mxw*100)+'%"></i><b class="mt" style="inset-inline-start:'+(openG/mxw*100)+'%"></b></div>'+
+     '<div class="meter-l"><span>وزن البداية '+amt(openG,'جم',false)+'</span><span>مخزونك الآن '+amt(w21,'جم',false)+'</span></div>'+
+     '<div class="meter-l" style="margin-top:6px"><span>صافي النقد اللي دفعتيه (بسعر اليوم)</span>'+amt(cash/P,'جم',true)+'</div>'+
+     '<div style="text-align:center"><span class="gainpill '+(eqG<0?'neg':'')+'">مكسبك بالوزن '+sg(eqG)+' جم</span></div>'+
+     '<p class="note" style="margin:10px 0 0;text-align:center">المخزون + النقد بالجرامات − وزن البداية، لو بعتي كل حاجة النهارده.</p></div>':'')+
    '<div class="card"><h2>أرباح آخر الشهور</h2>'+(bars?'<div class="bars">'+bars+'</div>':'<div class="empty">لسه مفيش عمليات.</div>')+'</div>'+
    '<details class="card" id="setBox"><summary>الإعدادات والمزامنة</summary>'+
     '<div class="row"><div class="f"><label for="sOz">الأونصة بالدولار (احتياطي لو مفيش اتصال)</label><input id="sOz" inputmode="decimal" value="'+(cfg.ounce||'')+'"></div>'+
@@ -404,10 +442,10 @@ function renderHome(){
     '<div class="row"><div class="f"><label for="sSp">خصم الشراء عن البيع (لجرام 21)</label><input id="sSp" inputmode="decimal" value="'+(cfg.spread[c]||'')+'"></div>'+
     '<div class="f"><label for="sMk">مصنعيتك الافتراضية/جم</label><input id="sMk" inputmode="decimal" value="'+(cfg.making[c]||'')+'"></div></div>'+
     '<h2 style="margin-top:14px">المزامنة بين الأجهزة <span class="tag" id="syncSt">'+(bin?'':'غير مفعّلة')+'</span></h2>'+
-    (bin?'<p class="note">رقم المخزن (اكتبه في الجهاز التاني): <b class="num" style="user-select:all">'+esc(bin)+'</b></p><button class="btn sm" data-act="syncnow">مزامنة الآن</button>':
+    (bin?'<p class="note">رقم المخزن (اكتبيه في الجهاز التاني): <b class="num" style="user-select:all">'+esc(bin)+'</b></p><button class="btn sm" data-act="syncnow">مزامنة الآن</button>':
       '<div class="f"><label for="sKey">مفتاح jsonbin '+(skey()?'(موجود من بيت زينة)':'')+'</label><input id="sKey" placeholder="X-Master-Key" value=""></div>'+
-      '<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm main" data-act="mkbin">تفعيل المزامنة</button></div>'+
-      '<div class="f"><label for="sJoin">أو اربط بمخزن موجود (رقمه)</label><input id="sJoin"></div><button class="btn sm" data-act="joinbin">ربط</button>')+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm main" data-act="mkbin">تفعيل المزامنة</button></div>'+
+      '<div class="f"><label for="sJoin">أو اربطي بمخزن موجود (رقمه)</label><input id="sJoin"></div><button class="btn sm" data-act="joinbin">ربط</button>')+
     '<h2 style="margin-top:14px">نسخ احتياطي</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="csv">تصدير العمليات CSV</button><button class="btn sm" data-act="backup">نسخة احتياطية</button><button class="btn sm" data-act="restore">استرجاع</button></div><input type="file" id="fileIn" accept=".json" hidden>'+
    '</details>';
   $('#sub').textContent=subLine();
@@ -437,14 +475,30 @@ function runCalc(){
   $('#r3').innerHTML=KARATS.map(function(t){return '<div><span><span class="kbadge">'+t+'</span></span><b class="num">'+fmt(w3*k3/t)+' جم</b></div>'}).join('')+'<div class="tot"><span>قيمة الخام</span><b class="num">'+fmt(w3*P*k3/21)+' '+CURN[cfg.cur]+'</b></div>';
 }
 function lines(a){return a.map(function(p){return esc(p.name||'قطعة')+' '+p.k+'ك · '+fmt(n(p.w))+' جم'}).join(' + ')}
+function dealTitle(d){
+  var o=d.out.map(function(p){return p.name||'قطعة'}).join('، '),i=d.in.map(function(p){return p.name||'قطعة'}).join('، ');
+  return d.out.length&&d.in.length?o+' ← '+i:(d.out.length?o:i);
+}
 function renderLog(){
-  var L=myDeals();
-  $('#v-log').innerHTML=!L.length?'<div class="card empty">مفيش عمليات بعملة '+CURN[cfg.cur]+' لسه.</div>':
-   '<div class="card">'+L.map(function(d){var k=calc(d);
-    return '<div class="item" data-id="'+d.id+'"><div class="h"><b class="num">'+d.date+'</b><b class="num '+cl(k.profit)+'">'+(d.out.length?sg(k.profit):'شراء')+'</b></div>'+
-     (d.note?'<div class="ln">'+esc(d.note)+'</div>':'')+(d.out.length?'<div class="ln">بعت: '+lines(d.out)+'</div>':'')+(d.in.length?'<div class="ln">اشتريت: '+lines(d.in)+'</div>':'')+
-     '<div class="ln">نقد: <span class="num '+cl(k.cash)+'">'+sg(k.cash)+'</span> · فرق الوزن 21: <span class="num '+cl(k.gold)+'">'+sg(k.gold)+' جم</span></div>'+
-     '<div class="acts"><button class="btn sm" data-act="edit">تعديل</button><button class="btn sm bad" data-act="del">حذف</button></div></div>'}).join('')+'</div>';
+  var L=myDeals(),h='',cur='';
+  if(!L.length){$('#v-log').innerHTML='<div class="card empty">مفيش عمليات بعملة '+CURN[cfg.cur]+' لسه.</div>';return}
+  var tot={};L.forEach(function(d){var m=d.date.slice(0,7);tot[m]=tot[m]||{n:0,p:0};tot[m].n++;tot[m].p+=calc(d).profit});
+  L.forEach(function(d){
+    var m=d.date.slice(0,7),k=calc(d),mm=m.split('-');
+    if(m!==cur){cur=m;h+='<div class="mh"><b>'+MONTHS[+mm[1]-1]+' '+mm[0]+'</b><span>'+tot[m].n+' عملية · ربح '+amt(tot[m].p,'',true)+'</span></div>'}
+    var kind=d.out.length&&d.in.length?'swap':(d.out.length?'sell':'buy'),kl={swap:'مبادلة',sell:'بيع',buy:'شراء'}[kind];
+    var wt=(d.out.length?d.out:d.in).reduce(function(a,p){return a+n(p.w)},0);
+    var right=kind==='buy'?amt(k.cash,'',true,''):amt(k.profit,'',true);
+    var rl=kind==='buy'?'دفعتي':'ربح';
+    h+='<div class="dr" data-id="'+d.id+'"><div class="hd"><span class="badge '+kind+'">'+kl+'</span>'+
+      '<div class="tt"><b>'+esc(dealTitle(d))+'</b><span class="num">'+d.date.slice(8)+' · '+fmt(wt)+' جم</span></div>'+
+      '<div class="rt">'+right+'<small>'+rl+'</small></div></div>'+
+      '<div class="more">'+(d.note?'<p>'+esc(d.note)+'</p>':'')+
+      (d.out.length?'<p>بعتي: '+lines(d.out)+'</p>':'')+(d.in.length?'<p>اشتريتي: '+lines(d.in)+'</p>':'')+
+      '<p>النقد '+amt(k.cash,'',true)+' · فرق الوزن 21 '+amt(k.gold,'جم',true)+'</p>'+
+      '<div class="acts"><button class="btn sm" data-act="edit">تعديل</button><button class="btn sm bad" data-act="del">حذف</button></div></div></div>';
+  });
+  $('#v-log').innerHTML=h;
 }
 function renderAll(){renderHome();renderCalc();renderStock();renderLog();if(!F)newForm();renderAdd();syncCur()}
 function syncCur(){document.querySelectorAll('[data-cur]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.cur===cfg.cur?'true':'false')})}
@@ -466,6 +520,8 @@ function exportCsv(){
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
+  var ch=e.target.closest('.chip');if(ch){selK=+ch.dataset.k;var so=$('#setBox')&&$('#setBox').open;renderHome();if(so)$('#setBox').open=true;return}
+  var rw=e.target.closest('.dr');if(rw&&!e.target.closest('button')){rw.classList.toggle('open');return}
   var b=e.target.closest('button');if(!b)return;
   if(b.dataset.tab){showTab(b.dataset.tab);return}
   if(b.dataset.cur){if(cfg.cur===b.dataset.cur)return;cfg.cur=b.dataset.cur;saveAll();F=null;newSP();renderAll();return}
@@ -481,7 +537,7 @@ document.addEventListener('click',function(e){
   if(act==='mkbin'){var k=$('#sKey').value.trim();if(k)lsSet('gold_key',k);createBin();return}
   if(act==='joinbin'){var id=$('#sJoin').value.trim(),k2=$('#sKey')?$('#sKey').value.trim():'';if(k2)lsSet('gold_key',k2);if(!id||!skey()){toast('اكتب المفتاح ورقم المخزن');return}lsSet('gold_bin',id);dirty=false;lastTs=0;syncPull().then(renderHome);return}
   if(act==='savepc'){SP.name=$('#sName').value;SP.k=+$('#sK').value;SP.w=$('#sW').value;SP.cost=$('#sC').value;savePiece();return}
-  var it=b.closest('.item');
+  var it=b.closest('.item')||b.closest('.pcard')||b.closest('.dr');
   if(act==='sellpc'&&it){newForm();F.out=[{pid:it.dataset.pid,name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}];F.in=[];fillLinked(F.out[0]);renderAdd();showTab('add');return}
   if(act==='editpc'&&it){var p=byId(pieces,it.dataset.pid);SP={id:p.id,name:p.name,k:p.k,w:String(p.w),cost:String(p.cost),date:p.date};renderStock();$('#spBox').open=true;$('#spBox').scrollIntoView();return}
   if(act==='delpc'&&it){confirmTap(b,function(){pieces=pieces.filter(function(x){return x.id!==it.dataset.pid});saveAll();renderStock();renderHome()});return}
