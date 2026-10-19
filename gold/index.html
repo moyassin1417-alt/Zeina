@@ -123,6 +123,13 @@ details summary{cursor:pointer;font-weight:600;min-height:36px;display:flex;alig
 .pcard .h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.pcard .h b{font-weight:600}
 .pcard .ln{font-size:13px;color:var(--mute);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:2px}
 .pcard .acts{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap}
+#lock{position:fixed;inset:0;z-index:100;background:var(--bg);display:grid;place-items:center;padding:20px}#lock[hidden]{display:none}
+.lk{width:100%;max-width:300px;text-align:center}.lk-t{font-family:var(--disp);font-size:24px;color:var(--gold-hi);margin-bottom:18px}
+.lk-d{display:flex;justify-content:center;gap:14px;direction:ltr}.lk-d i{width:16px;height:16px;border-radius:50%;border:2px solid var(--gold);transition:.12s}.lk-d i.on{background:var(--gold-grad)}
+.lk-d.err{animation:shk .3s}@keyframes shk{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.lk-m{min-height:22px;margin:12px 0;font-size:13px;color:var(--neg)}
+.lk-k{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;direction:ltr}.lk-k button{width:72px;height:72px;justify-self:center;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 24px var(--mono);cursor:pointer}
+.lk-k button:active{background:var(--gold-soft)}.lk-k .x{font:500 15px var(--ui);border-color:transparent;background:none;color:var(--mute)}
 #fab{position:fixed;inset-inline-end:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));width:54px;height:54px;border-radius:50%;border:0;background:var(--gold-grad);color:#16130A;font-size:32px;line-height:1;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.5),0 0 0 1px rgba(243,213,139,.4);cursor:pointer;z-index:24;display:flex;align-items:center;justify-content:center;padding-bottom:3px}
 #fab[hidden]{display:none}
 .modes{display:grid;gap:10px}.mode{border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:14px;padding:14px;font:inherit;text-align:start;cursor:pointer;display:flex;flex-direction:column;gap:3px}
@@ -156,6 +163,8 @@ nav button[aria-current="page"]{color:var(--gold);background:var(--gold-soft)}
   <section id="v-calc" hidden></section>
   <section id="v-log" hidden></section>
 </div>
+<div id="lock" hidden><div class="lk"><div class="lk-t" id="lkT">أدخلي الرمز</div><div class="lk-d" id="lkD"><i></i><i></i><i></i><i></i></div><div class="lk-m" id="lkM">&nbsp;</div>
+<div class="lk-k"><button data-d="1">1</button><button data-d="2">2</button><button data-d="3">3</button><button data-d="4">4</button><button data-d="5">5</button><button data-d="6">6</button><button data-d="7">7</button><button data-d="8">8</button><button data-d="9">9</button><button class="x" data-d="c" aria-label="إلغاء">إلغاء</button><button data-d="0">0</button><button class="x" data-d="b" aria-label="مسح">⌫</button></div></div></div>
 <button id="fab" class="fab" data-act="fab" aria-label="عملية جديدة">+</button>
 <nav aria-label="التبويبات"><div class="in">
   <button data-tab="home" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>الرئيسية</button>
@@ -523,6 +532,9 @@ function renderHome(){
     '<div class="f"><label for="sLoc">سعر جرام 21 بالسوق ('+CURN[c]+')</label><input id="sLoc" inputmode="decimal" placeholder="فاضي = العالمي" value="'+(cfg.local[c]||'')+'"></div></div>'+
     '<div class="row"><div class="f"><label for="sSp">خصم الشراء عن البيع (لجرام 21)</label><input id="sSp" inputmode="decimal" value="'+(cfg.spread[c]||'')+'"></div>'+
     '<div class="f"><label for="sMk">مصنعيتك الافتراضية/جم</label><input id="sMk" inputmode="decimal" value="'+(cfg.making[c]||'')+'"></div></div>'+
+    '<h2 style="margin-top:14px">رمز الدخول <span class="tag">'+(lsGet('gold_pin')?'مفعّل':'غير مفعّل')+'</span></h2>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm main" data-act="pinset">'+(lsGet('gold_pin')?'تغيير الرمز':'إنشاء رمز')+'</button>'+(lsGet('gold_pin')?'<button class="btn sm bad" data-act="pinoff">إلغاء الرمز</button>':'')+'</div>'+
+    '<p class="note">الرمز بيتطلب لما تفتحي التطبيق أو ترجعيله بعد ما كان في الخلفية. محفوظ على الجهاز ده بس.</p>'+
     '<h2 style="margin-top:14px">المزامنة بين الأجهزة <span class="tag" id="syncSt">'+(bin?'':'غير مفعّلة')+'</span></h2>'+
     (bin?'<p class="note">رقم المخزن (اكتبيه في الجهاز التاني): <b class="num" style="user-select:all">'+esc(bin)+'</b></p><button class="btn sm" data-act="syncnow">مزامنة الآن</button>':
       '<div class="f"><label for="sKey">مفتاح jsonbin '+(skey()?'(موجود من بيت زينة)':'')+'</label><input id="sKey" placeholder="X-Master-Key" value=""></div>'+
@@ -659,6 +671,46 @@ document.addEventListener('change',function(e){
 /* ---------- boot ---------- */
 loadLocal();
 try{var lv=JSON.parse(lsGet('gold_live')||'null');if(lv)live=lv;live.ok=false}catch(e){}
+
+/* ---------- PIN lock ---------- */
+var LK={mode:'unlock',buf:'',tmp:'',after:null},hiddenAt=0;
+function hashPin(p){
+  var salt='gold-v1:';
+  if(window.crypto&&crypto.subtle){return crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+p)).then(function(b){return Array.prototype.map.call(new Uint8Array(b),function(x){return ('0'+x.toString(16)).slice(-2)}).join('')})}
+  var h=5381,t=salt+p;for(var i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return Promise.resolve('f'+h);
+}
+function lkShow(mode,title,after){LK.mode=mode;LK.buf='';LK.tmp='';LK.after=after||null;$('#lkT').textContent=title;$('#lkM').innerHTML='&nbsp;';lkDots();$('#lock').hidden=false;document.querySelector('#lock [data-d=c]').style.visibility=mode==='unlock'?'hidden':'visible'}
+function lkDots(){document.querySelectorAll('#lkD i').forEach(function(d,i){d.classList.toggle('on',i<LK.buf.length)})}
+function lkErr(m){var d=$('#lkD');d.classList.remove('err');void d.offsetWidth;d.classList.add('err');$('#lkM').textContent=m;LK.buf='';setTimeout(lkDots,150)}
+function lockNow(){if(lsGet('gold_pin')&&$('#lock').hidden)lkShow('unlock','أدخلي الرمز')}
+var lkFails=0,lkUntil=0;
+function lkDone(){
+  var p=LK.buf;
+  if(LK.mode==='unlock'||LK.mode==='old'){
+    if(Date.now()<lkUntil){lkErr('استني '+Math.ceil((lkUntil-Date.now())/1000)+' ثانية');return}
+    hashPin(p).then(function(h){
+      if(h===lsGet('gold_pin')){lkFails=0;var a=LK.after;$('#lock').hidden=true;if(a)a()}
+      else{lkFails++;if(lkFails>=5){lkUntil=Date.now()+30000;lkFails=0;lkErr('محاولات كتير، استني 30 ثانية')}else lkErr('الرمز غلط')}
+    });return}
+  if(LK.mode==='new'){LK.tmp=p;LK.mode='confirm';LK.buf='';$('#lkT').textContent='أكدي الرمز';$('#lkM').innerHTML='&nbsp;';lkDots();return}
+  if(LK.mode==='confirm'){
+    if(p!==LK.tmp){LK.mode='new';$('#lkT').textContent='اكتبي رمز جديد';lkErr('الرمزين مش متطابقين، ابدئي تاني');return}
+    hashPin(p).then(function(h){lsSet('gold_pin',h);$('#lock').hidden=true;toast('تم تفعيل الرمز');renderHome()})}
+}
+document.getElementById('lock').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;var d=b.dataset.d;
+  if(d==='c'){$('#lock').hidden=true;return}
+  if(d==='b'){LK.buf=LK.buf.slice(0,-1);lkDots();return}
+  if(LK.buf.length>=4)return;LK.buf+=d;lkDots();if(LK.buf.length===4)setTimeout(lkDone,120);
+});
+document.addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  if(b.dataset.act==='pinset'){var go=function(){lkShow('new','اكتبي رمز جديد (4 أرقام)')};if(lsGet('gold_pin'))lkShow('old','أدخلي الرمز الحالي',go);else go()}
+  if(b.dataset.act==='pinoff'){lkShow('old','أدخلي الرمز لإلغائه',function(){try{localStorage.removeItem('gold_pin')}catch(x){}toast('تم إلغاء الرمز');renderHome()})}
+});
+document.addEventListener('visibilitychange',function(){if(document.hidden)hiddenAt=Date.now();else if(hiddenAt&&Date.now()-hiddenAt>30000)lockNow()});
+document.addEventListener('keydown',function(e){if($('#lock').hidden)return;if(/^\d$/.test(e.key)){if(LK.buf.length<4){LK.buf+=e.key;lkDots();if(LK.buf.length===4)setTimeout(lkDone,120)}}else if(e.key==='Backspace'){LK.buf=LK.buf.slice(0,-1);lkDots()}});
+lockNow();
 newForm();newSP();renderAll();showTab('home');
 fetchLive();setInterval(fetchLive,300000);
 syncPull();setInterval(syncPull,20000);
