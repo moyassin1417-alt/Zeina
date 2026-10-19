@@ -260,6 +260,7 @@ async function fetchLive(){
     }
   }catch(e){}
   lsSet('gold_live',JSON.stringify(live));
+  try{if(live.ok){var H=JSON.parse(lsGet('gold_hist')||'{}');['SAR','EGP'].forEach(function(cc){var v=p21(cc);if(v>0){(H[cc]=H[cc]||{})[today()]=r2(v)}});lsSet('gold_hist',JSON.stringify(H))}}catch(e){}
   if(tab==='home')renderHome();
   $('#sub').textContent=subLine();
 }
@@ -401,6 +402,36 @@ function myDeals(){return deals.filter(function(d){return d.cur===cfg.cur}).sort
 var MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 var selK=21;
 function amt(v,unit,signed,c){var t=signed?sg(v):fmt(v);var k=c===undefined?(signed?cl(v):''):c;return '<span class="amt '+k+'"><b>'+t+'</b>'+(unit?'<i>'+unit+'</i>':'')+'</span>'}
+function priceChart(c,L){
+  var pts={},H={};try{H=(JSON.parse(lsGet('gold_hist')||'{}')[c])||{}}catch(e){}
+  var dealD={};
+  L.forEach(function(d){if(n(d.pSell)>0)dealD[d.date]=n(d.pSell)});
+  Object.keys(dealD).forEach(function(k){pts[k]=dealD[k]});
+  Object.keys(H).forEach(function(k){pts[k]=H[k]});
+  var P=p21(c);if(P>0)pts[today()]=P;
+  var ks=Object.keys(pts).sort();
+  if(ks.length<2)return '<div class="empty">الرسم هيظهر بعد ما يتجمع سعران على الأقل.</div>';
+  var W=320,Hh=150,pl=8,pr=8,pt=14,pb=22,vs=ks.map(function(k){return pts[k]});
+  var mn=Math.min.apply(null,vs),mx=Math.max.apply(null,vs),pad=(mx-mn)*.12||mx*.02;mn-=pad;mx+=pad;
+  var t0=new Date(ks[0]).getTime(),t1=new Date(ks[ks.length-1]).getTime()||t0+1,sp=Math.max(t1-t0,1);
+  function X(k){return pl+(new Date(k).getTime()-t0)/sp*(W-pl-pr)}
+  function Y(v){return pt+(1-(v-mn)/(mx-mn))*(Hh-pt-pb)}
+  var line=ks.map(function(k,i){return (i?'L':'M')+X(k).toFixed(1)+' '+Y(pts[k]).toFixed(1)}).join('');
+  var area=line+'L'+X(ks[ks.length-1]).toFixed(1)+' '+(Hh-pb)+'L'+X(ks[0]).toFixed(1)+' '+(Hh-pb)+'Z';
+  var dots=Object.keys(dealD).sort().map(function(k){return '<circle cx="'+X(k).toFixed(1)+'" cy="'+Y(dealD[k]).toFixed(1)+'" r="3" fill="var(--gold)" stroke="var(--bg)" stroke-width="1.5"/>'}).join('');
+  var lk=ks[ks.length-1],lx=X(lk),ly=Y(pts[lk]);
+  var grid=[0,.5,1].map(function(f){var y=pt+f*(Hh-pt-pb);return '<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 4"/>'}).join('');
+  function dl(k){var a=k.split('-');return a[2]+' '+MONTHS[+a[1]-1]}
+  var iMax=vs.indexOf(Math.max.apply(null,vs)),iMin=vs.indexOf(Math.min.apply(null,vs));
+  return '<svg viewBox="0 0 '+W+' '+Hh+'" class="pch" role="img" aria-label="سعر جرام 21 عبر الوقت" style="width:100%;height:auto;direction:ltr">'+
+    '<defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--gold)" stop-opacity=".28"/><stop offset="1" stop-color="var(--gold)" stop-opacity="0"/></linearGradient></defs>'+
+    grid+'<path d="'+area+'" fill="url(#pg)"/><path d="'+line+'" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'+dots+
+    '<circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="4.5" fill="var(--gold)" stroke="var(--bg)" stroke-width="2"/>'+
+    '<text x="'+pl+'" y="'+(Hh-6)+'" font-size="10" fill="var(--mute)">'+dl(ks[0])+'</text>'+
+    '<text x="'+(W-pr)+'" y="'+(Hh-6)+'" font-size="10" fill="var(--mute)" text-anchor="end">'+dl(lk)+'</text></svg>'+
+    '<div class="meter-l"><span>أدنى '+amt(vs[iMin],'',false)+' · '+dl(ks[iMin])+'</span><span>أعلى '+amt(vs[iMax],'',false)+' · '+dl(ks[iMax])+'</span></div>'+
+    '<p class="note" style="margin:8px 0 0;text-align:center">النقط الذهبية = سعر 21 وقت عملياتك. الخط بيكمّل بسعر كل يوم تفتحي فيه التطبيق.</p>';
+}
 function renderHome(){
   var c=cfg.cur,P=p21(c),L=myDeals(),prof=0,cash=0;
   L.forEach(function(d){var k=calc(d);prof+=k.profit;cash+=k.cash});
@@ -433,6 +464,7 @@ function renderHome(){
      '<div class="meter-l" style="margin-top:6px"><span>صافي النقد اللي دفعتيه (بسعر اليوم)</span>'+amt(cash/P,'جم',true)+'</div>'+
      '<div style="text-align:center"><span class="gainpill '+(eqG<0?'neg':'')+'">مكسبك بالوزن '+sg(eqG)+' جم</span></div>'+
      '<p class="note" style="margin:10px 0 0;text-align:center">المخزون + النقد بالجرامات − وزن البداية، لو بعتي كل حاجة النهارده.</p></div>':'')+
+   '<div class="card"><h2>سعر جرام 21 ('+CURN[c]+')</h2>'+priceChart(c,L)+'</div>'+
    '<div class="card"><h2>أرباح آخر الشهور</h2>'+(bars?'<div class="bars">'+bars+'</div>':'<div class="empty">لسه مفيش عمليات.</div>')+'</div>'+
    '<details class="card" id="setBox"><summary>الإعدادات والمزامنة</summary>'+
     '<div class="row"><div class="f"><label for="sOz">الأونصة بالدولار (احتياطي لو مفيش اتصال)</label><input id="sOz" inputmode="decimal" value="'+(cfg.ounce||'')+'"></div>'+
