@@ -123,6 +123,14 @@ details summary{cursor:pointer;font-weight:600;min-height:36px;display:flex;alig
 .pcard .h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.pcard .h b{font-weight:600}
 .pcard .ln{font-size:13px;color:var(--mute);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:2px}
 .pcard .acts{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap}
+#fab{position:fixed;inset-inline-end:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));width:54px;height:54px;border-radius:50%;border:0;background:var(--gold-grad);color:#16130A;font-size:32px;line-height:1;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.5),0 0 0 1px rgba(243,213,139,.4);cursor:pointer;z-index:24;display:flex;align-items:center;justify-content:center;padding-bottom:3px}
+#fab[hidden]{display:none}
+.modes{display:grid;gap:10px}.mode{border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:14px;padding:14px;font:inherit;text-align:start;cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.mode b{font-size:18px;color:var(--gold-hi)}.mode span{font-size:13px;color:var(--mute)}
+.seg2{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--surface);border:1px solid var(--line);padding:4px;border-radius:14px;margin-bottom:12px}
+.seg2 button{border:0;background:none;color:var(--mute);font:inherit;font-weight:600;min-height:40px;border-radius:10px;cursor:pointer}
+.seg2 button[aria-pressed="true"]{background:var(--gold-grad);color:#16130A}
+.toast .u{margin-inline-start:12px;background:rgba(0,0,0,.18);border:0;border-radius:99px;padding:3px 12px;font:inherit;font-weight:700;color:inherit;cursor:pointer}
 nav{position:fixed;bottom:0;left:0;right:0;z-index:25;background:rgba(21,23,26,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);
   padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
 nav .in{max-width:560px;margin-inline:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
@@ -148,6 +156,7 @@ nav button[aria-current="page"]{color:var(--gold);background:var(--gold-soft)}
   <section id="v-calc" hidden></section>
   <section id="v-log" hidden></section>
 </div>
+<button id="fab" class="fab" data-act="fab" aria-label="عملية جديدة">+</button>
 <nav aria-label="التبويبات"><div class="in">
   <button data-tab="home" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>الرئيسية</button>
   <button data-tab="add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>عملية</button>
@@ -174,6 +183,7 @@ function r2(v){return Math.round(v*100)/100}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function $(s,r){return (r||document).querySelector(s)}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function toastUndo(t,undo){var e=document.createElement('div');e.className='toast';e.textContent=t;var b=document.createElement('button');b.className='u';b.textContent='تراجع';b.onclick=function(){undo();e.remove()};e.appendChild(b);document.body.appendChild(e);setTimeout(function(){e.remove()},6000)}
 function toast(t){var e=document.createElement('div');e.className='toast';e.textContent=t;document.body.appendChild(e);setTimeout(function(){e.remove()},2400)}
 function kOpts(sel){return KARATS.map(function(k){return '<option value="'+k+'"'+(+sel===k?' selected':'')+'>'+k+'</option>'}).join('')}
 function byId(a,id){for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null}
@@ -271,14 +281,14 @@ function subLine(){var P=p21(cfg.cur);return P?('عيار 21: '+fmt(P)+' '+CURN[
 function newLeg(side){return side==='out'?{pid:'',name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}:{name:'',k:21,w:'',m:'',total:''}}
 function newForm(){
   var s=p21(cfg.cur),b=p21buy(cfg.cur);
-  F={id:null,date:today(),note:'',cur:cfg.cur,pSell:s?String(r2(s)):'',pBuy:b?String(r2(b)):'',sellTotal:'',out:[newLeg('out')],in:[newLeg('in')],cash:''};
+  F={id:null,date:today(),note:'',cur:cfg.cur,pSell:s?String(r2(s)):'',pBuy:b?String(r2(b)):'',sellTotal:'',out:[newLeg('out')],in:[newLeg('in')],cash:'',mode:null};
 }
 function formFromDeal(d){
   var k=calc(d),man=Math.abs(k.cash-k.exp)>0.005;
   F={id:d.id,date:d.date,note:d.note||'',cur:d.cur,pSell:String(d.pSell),pBuy:String(d.pBuy),sellTotal:d.sellTotal?String(d.sellTotal):'',
      out:d.out.map(function(p){return {pid:p.pid||'',name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||''),cost:p.pid?'':(p.cost?String(p.cost):'')}}),
      in:d.in.map(function(p){return {name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||''),total:p.total?String(p.total):''}}),
-     cash:man?String(r2(k.cash)):''};
+     cash:man?String(r2(k.cash)):'',mode:d.out.length&&d.in.length?'swap':(d.out.length?'sell':'buy')};
 }
 function stockOptions(sel,usedIds){
   var cur=F.cur,list=stockList(cur).filter(function(p){return p.id===sel||usedIds.indexOf(p.id)<0});
@@ -300,18 +310,32 @@ function legHtml(side,i,p){
    (side==='out'&&!linked?'<div class="f"><label>تكلفتك فيها (اختياري، لو فاضي = خام بسعر الشراء)</label><input data-f="cost" inputmode="decimal" value="'+esc(p.cost)+'"></div>':'')+
    '<div class="pv"><span>القيمة</span><b class="num" data-pv>0.00</b>'+(side==='out'?'<span>التكلفة</span><b class="num" data-bs>0.00</b>':'')+'</div></div>';
 }
+function setMode(m){
+  F.mode=m;
+  if(m==='sell')F.in=[];if(m==='buy')F.out=[];
+  if((m==='sell'||m==='swap')&&!F.out.length)F.out=[newLeg('out')];
+  if((m==='buy'||m==='swap')&&!F.in.length)F.in=[newLeg('in')];
+}
+var MODES=[['sell','بعت','قطعة من المخزون بعتها بفلوس'],['buy','اشتريت','قطعة جديدة تدخل المخزون'],['swap','بدّلت','بعت قطعة واشتريت قصادها']];
 function renderAdd(){
+  if(!F.mode&&!F.id){
+    $('#v-add').innerHTML='<div class="card"><h2>عملية جديدة · '+CURN[F.cur]+'</h2><p class="note" style="margin:0 0 10px">إيه اللي حصل؟</p><div class="modes">'+
+      MODES.map(function(m){return '<button class="mode" data-act="mode" data-m="'+m[0]+'"><b>'+m[1]+'</b><span>'+m[2]+'</span></button>'}).join('')+'</div></div>';
+    return;
+  }
+  var md=F.mode||'swap',showS=md!=='buy',showB=md!=='sell';
   $('#v-add').innerHTML=
+   '<div class="seg2" role="group" aria-label="نوع العملية">'+MODES.map(function(m){return '<button data-act="mode" data-m="'+m[0]+'" aria-pressed="'+(md===m[0])+'">'+m[1]+'</button>'}).join('')+'</div>'+
    '<div class="card"><h2>'+(F.id?'تعديل عملية':'عملية جديدة')+' · '+CURN[F.cur]+'</h2>'+
     '<div class="row"><div class="f"><label for="fDate">التاريخ</label><input id="fDate" type="date" value="'+F.date+'"></div>'+
     '<div class="f"><label for="fNote">ملاحظة / الطرف الآخر</label><input id="fNote" value="'+esc(F.note)+'"></div></div>'+
-    '<div class="row"><div class="f"><label for="fSell">سعر جرام 21 للبيع</label><input id="fSell" inputmode="decimal" value="'+esc(F.pSell)+'"></div>'+
-    '<div class="f"><label for="fBuy">سعر جرام 21 للشراء</label><input id="fBuy" inputmode="decimal" value="'+esc(F.pBuy)+'"></div></div></div>'+
-   '<div class="card"><div class="side-h"><b>قطع بعتها</b><button class="btn sm" data-act="add" data-side="out">+ قطعة</button></div>'+
+    '<div class="row">'+(showS?'<div class="f"><label for="fSell">سعر جرام 21 للبيع</label><input id="fSell" inputmode="decimal" value="'+esc(F.pSell)+'"></div>':'')+
+    (showB?'<div class="f"><label for="fBuy">سعر جرام 21 للشراء</label><input id="fBuy" inputmode="decimal" value="'+esc(F.pBuy)+'"></div>':'')+'</div></div>'+
+   (showS?'<div class="card"><div class="side-h"><b>قطع بعتها</b><button class="btn sm" data-act="add" data-side="out">+ قطعة</button></div>'+
      F.out.map(function(p,i){return legHtml('out',i,p)}).join('')+
-     '<div class="f"><label for="fSellTotal">إجمالي سعر البيع لكل القطع دي (اختياري، يلغي حساب السعر × الوزن)</label><input id="fSellTotal" inputmode="decimal" value="'+esc(F.sellTotal)+'"></div></div>'+
-   '<div class="card"><div class="side-h"><b>قطع اشتريتها (تدخل المخزون)</b><button class="btn sm" data-act="add" data-side="in">+ قطعة</button></div>'+
-     F.in.map(function(p,i){return legHtml('in',i,p)}).join('')+'</div>'+
+     '<div class="f"><label for="fSellTotal">إجمالي سعر البيع لكل القطع دي (اختياري، يلغي حساب السعر × الوزن)</label><input id="fSellTotal" inputmode="decimal" value="'+esc(F.sellTotal)+'"></div></div>':'')+
+   (showB?'<div class="card"><div class="side-h"><b>قطع اشتريتها (تدخل المخزون)</b><button class="btn sm" data-act="add" data-side="in">+ قطعة</button></div>'+
+     F.in.map(function(p,i){return legHtml('in',i,p)}).join('')+'</div>':'')+
    '<div class="card"><h2>الحساب</h2><div id="sum"></div>'+
     '<div class="f"><label for="fCash" id="fCashL">النقد الفعلي</label><input id="fCash" inputmode="decimal" value="'+esc(F.cash)+'"></div>'+
     '<p class="note" style="margin:0">اتركه فاضي لو الفرق اتسوّى بالسعر المحسوب، أو اكتب اللي حصل فعلًا (+ استلمت، − دفعت).</p></div>'+
@@ -320,6 +344,7 @@ function renderAdd(){
   updateSum();
 }
 function updateSum(){
+  if(!$('#sum'))return;
   var d={pSell:F.pSell,pBuy:F.pBuy,sellTotal:F.sellTotal,out:F.out,in:F.in,cash:F.cash},k=calc(d);
   document.querySelectorAll('#v-add .pc').forEach(function(r){
     var s=r.dataset.side,p=F[s][+r.dataset.i];if(!p)return;
@@ -539,6 +564,7 @@ function showTab(t){
   tab=t;
   ['home','add','stock','calc','log'].forEach(function(x){$('#v-'+x).hidden=x!==t});
   document.querySelectorAll('nav [data-tab]').forEach(function(b){if(b.dataset.tab===t)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  var fb=$('#fab');if(fb)fb.hidden=(t==='add');
   window.scrollTo(0,0);
 }
 
@@ -559,6 +585,8 @@ document.addEventListener('click',function(e){
   if(b.dataset.tab){showTab(b.dataset.tab);return}
   if(b.dataset.cur){if(cfg.cur===b.dataset.cur)return;cfg.cur=b.dataset.cur;saveAll();F=null;newSP();renderAll();return}
   var act=b.dataset.act;if(!act)return;
+  if(act==='mode'){setMode(b.dataset.m);renderAdd();return}
+  if(act==='fab'){if(!F||F.id)newForm();renderAdd();showTab('add');return}
   if(act==='add'){F[b.dataset.side].push(newLeg(b.dataset.side));renderAdd();return}
   if(act==='rm'){var r=b.closest('.pc');F[r.dataset.side].splice(+r.dataset.i,1);renderAdd();return}
   if(act==='reset'){newForm();renderAdd();return}
@@ -571,13 +599,15 @@ document.addEventListener('click',function(e){
   if(act==='joinbin'){var id=$('#sJoin').value.trim(),k2=$('#sKey')?$('#sKey').value.trim():'';if(k2)lsSet('gold_key',k2);if(!id||!skey()){toast('اكتب المفتاح ورقم المخزن');return}lsSet('gold_bin',id);dirty=false;lastTs=0;syncPull().then(renderHome);return}
   if(act==='savepc'){SP.name=$('#sName').value;SP.k=+$('#sK').value;SP.w=$('#sW').value;SP.cost=$('#sC').value;savePiece();return}
   var it=b.closest('.item')||b.closest('.pcard')||b.closest('.dr');
-  if(act==='sellpc'&&it){newForm();F.out=[{pid:it.dataset.pid,name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}];F.in=[];fillLinked(F.out[0]);renderAdd();showTab('add');return}
+  if(act==='sellpc'&&it){newForm();F.out=[{pid:it.dataset.pid,name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}];F.in=[];F.mode='sell';fillLinked(F.out[0]);renderAdd();showTab('add');return}
   if(act==='editpc'&&it){var p=byId(pieces,it.dataset.pid);SP={id:p.id,name:p.name,k:p.k,w:String(p.w),cost:String(p.cost),date:p.date};renderStock();$('#spBox').open=true;$('#spBox').scrollIntoView();return}
-  if(act==='delpc'&&it){confirmTap(b,function(){pieces=pieces.filter(function(x){return x.id!==it.dataset.pid});saveAll();renderStock();renderHome()});return}
+  if(act==='delpc'&&it){var snP=JSON.stringify(pieces);pieces=pieces.filter(function(x){return x.id!==it.dataset.pid});saveAll();renderStock();renderHome();toastUndo('تم حذف القطعة',function(){pieces=JSON.parse(snP);saveAll();renderStock();renderHome()});return}
   if(act==='edit'&&it){var d=byId(deals,it.dataset.id);if(d){formFromDeal(d);renderAdd();showTab('add')}return}
-  if(act==='del'&&it){confirmTap(b,function(){
+  if(act==='del'&&it){
     var bl=blocked(it.dataset.id);if(bl){toast('القطعة "'+bl.name+'" اتباعت في عملية لاحقة');return}
-    revertDeal(it.dataset.id);deals=deals.filter(function(x){return x.id!==it.dataset.id});saveAll();renderAll();toast('تم الحذف')});return}
+    var snD=JSON.stringify({d:deals,p:pieces});
+    revertDeal(it.dataset.id);deals=deals.filter(function(x){return x.id!==it.dataset.id});saveAll();renderAll();
+    toastUndo('تم الحذف',function(){var o=JSON.parse(snD);deals=o.d;pieces=o.p;saveAll();renderAll()});return}
 });
 function confirmTap(b,fn){
   if(b.dataset.arm){fn();return}
