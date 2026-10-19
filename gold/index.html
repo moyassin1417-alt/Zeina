@@ -458,6 +458,29 @@ function priceChart(c,L){
     '<div class="meter-l"><span>أدنى '+amt(vs[iMin],'',false)+' · '+dl(ks[iMin])+'</span><span>أعلى '+amt(vs[iMax],'',false)+' · '+dl(ks[iMax])+'</span></div>'+
     '<p class="note" style="margin:8px 0 0;text-align:center">النقط الذهبية = سعر 21 وقت عملياتك. الخط بيكمّل بسعر كل يوم تفتحي فيه التطبيق.</p>';
 }
+function profitChart(L){
+  var m={};L.forEach(function(d){var k=d.date.slice(0,7);m[k]=(m[k]||0)+calc(d).profit});
+  var ks=Object.keys(m).sort();if(!ks.length)return '';
+  var t=today().slice(0,7);if(ks[ks.length-1]<t)ks.push(t);
+  var all=[],a=ks[0].split('-'),y=+a[0],mo=+a[1];
+  while((y+'-'+String(mo).padStart(2,'0'))<=ks[ks.length-1]){all.push(y+'-'+String(mo).padStart(2,'0'));if(++mo>12){mo=1;y++}}
+  var cum=0,vs=all.map(function(k){cum+=m[k]||0;return cum});
+  if(all.length<2){all.unshift('');vs.unshift(0)}
+  var W=320,H=150,pl=8,pr=8,pt=18,pb=22,mn=Math.min(0,Math.min.apply(null,vs)),mx=Math.max.apply(null,vs.concat([1]));
+  var X=function(i){return pl+i/(vs.length-1)*(W-pl-pr)},Y=function(v){return pt+(1-(v-mn)/(mx-mn))*(H-pt-pb)};
+  var line=vs.map(function(v,i){return (i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)}).join('');
+  var z=Y(0).toFixed(1),area=line+'L'+X(vs.length-1).toFixed(1)+' '+z+'L'+X(0).toFixed(1)+' '+z+'Z';
+  var step=Math.ceil(vs.length/5),labs=all.map(function(k,i){if(!k||(i%step&&i!==vs.length-1))return '';var b=k.split('-');return '<text x="'+X(i).toFixed(1)+'" y="'+(H-6)+'" font-size="10" fill="var(--mute)" text-anchor="'+(i===0?'start':i===vs.length-1?'end':'middle')+'">'+MONTHS[+b[1]-1]+'</text>'}).join('');
+  var dots=vs.map(function(v,i){return all[i]?'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="2.8" fill="var(--gold)"/>':''}).join('');
+  var li=vs.length-1;
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="الربح التراكمي بالأشهر" style="width:100%;height:auto;direction:ltr">'+
+   '<defs><linearGradient id="pf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--pos)" stop-opacity=".3"/><stop offset="1" stop-color="var(--pos)" stop-opacity="0"/></linearGradient></defs>'+
+   '<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+z+'" y2="'+z+'" stroke="var(--line)" stroke-dasharray="2 4"/>'+
+   '<path d="'+area+'" fill="url(#pf)"/><path d="'+line+'" fill="none" stroke="var(--pos)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>'+dots+
+   '<circle cx="'+X(li).toFixed(1)+'" cy="'+Y(vs[li]).toFixed(1)+'" r="4.5" fill="var(--pos)" stroke="var(--bg)" stroke-width="2"/>'+
+   '<text x="'+(W-pr)+'" y="'+Math.max(10,Y(vs[li])-9).toFixed(1)+'" font-size="11" font-weight="700" fill="var(--pos)" text-anchor="end">'+fmt(vs[li])+'</text>'+labs+'</svg>'+
+   '<p class="note" style="margin:6px 0 0;text-align:center">مجموع الربح المتراكم شهرًا بشهر (القطع المباعة فقط).</p>';
+}
 function renderHome(){
   var c=cfg.cur,P=p21(c),L=myDeals(),prof=0,cash=0;
   L.forEach(function(d){var k=calc(d);prof+=k.profit;cash+=k.cash});
@@ -491,6 +514,7 @@ function renderHome(){
      '<div style="text-align:center"><span class="gainpill '+(eqG<0?'neg':'')+'">مكسبك بالوزن '+sg(eqG)+' جم</span></div>'+
      '<p class="note" style="margin:10px 0 0;text-align:center">المخزون + النقد بالجرامات − وزن البداية، لو بعتي كل حاجة النهارده.</p></div>':'')+
    '<div class="card"><h2>سعر جرام 21 ('+CURN[c]+')</h2>'+priceChart(c,L)+'</div>'+
+   '<div class="card"><h2>الربح التراكمي ('+CURN[c]+')</h2>'+profitChart(L)+'</div>'+
    '<div class="card"><h2>أرباح آخر الشهور</h2>'+(bars?'<div class="bars">'+bars+'</div>':'<div class="empty">لسه مفيش عمليات.</div>')+'</div>'+
    '<details class="card" id="setBox"><summary>الإعدادات والمزامنة</summary>'+
     '<div class="row"><div class="f"><label for="sOz">الأونصة بالدولار (احتياطي لو مفيش اتصال)</label><input id="sOz" inputmode="decimal" value="'+(cfg.ounce||'')+'"></div>'+
