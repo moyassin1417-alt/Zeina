@@ -120,6 +120,8 @@ details summary{cursor:pointer;font-weight:600;min-height:36px;display:flex;alig
 /* stock */
 .pcard{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;margin-block:10px}
 .medal{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:18px;color:#16130A;background:var(--gold-grad);box-shadow:inset 0 0 0 3px rgba(0,0,0,.18)}
+.medal.ph{width:68px;height:68px;border-radius:16px;background-size:cover;background-position:center;position:relative;cursor:zoom-in;box-shadow:0 0 0 2px var(--gold)}.medal.ph em{position:absolute;inset-inline-end:-4px;bottom:-4px;font-style:normal;font-size:11px;background:var(--gold-grad);color:#16130A;border-radius:99px;padding:1px 6px;font-weight:700}
+.viewer{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.92);display:grid;place-items:center;padding:20px}.viewer img{max-width:100%;max-height:80vh;border-radius:14px;box-shadow:0 0 0 2px var(--gold)}.viewer .btn{margin-top:14px}
 .pcard .h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.pcard .h b{font-weight:600}
 .pcard .ln{font-size:13px;color:var(--mute);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:2px}
 .pcard .acts{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap}
@@ -156,6 +158,7 @@ nav button[aria-current="page"]{color:var(--gold);background:var(--gold-soft)}
   <section id="v-calc" hidden></section>
   <section id="v-log" hidden></section>
 </div>
+<input type="file" id="photoIn" accept="image/*" hidden>
 <button id="fab" class="fab" data-act="fab" aria-label="عملية جديدة">+</button>
 <nav aria-label="التبويبات"><div class="in">
   <button data-tab="home" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>الرئيسية</button>
@@ -392,14 +395,19 @@ function submitDeal(){
 
 /* ---------- stock ---------- */
 function newSP(){SP={id:null,name:'',k:21,w:'',cost:'',date:today()}}
+function photos(){try{return JSON.parse(lsGet('gold_photos')||'{}')}catch(e){return {}}}
+function setPhoto(pid,url){var P=photos();if(url)P[pid]=url;else delete P[pid];try{lsSet('gold_photos',JSON.stringify(P))}catch(e){toast('مساحة التخزين ممتلئة')}}
+function compressImg(file,cb){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var m=520,k=Math.min(1,m/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);cb(cv.toDataURL('image/jpeg',.72))};im.onerror=function(){toast('الصورة غير صالحة')};im.src=r.result};r.readAsDataURL(file)}
+var photoPid=null;
 function renderStock(){
   var c=cfg.cur,L=stockList(c),w21=0,cost=0,mkt=0;
   L.forEach(function(p){w21+=n(p.w)*p.k/21;cost+=n(p.cost);mkt+=pieceMarket(p,c)});
+  var PH=photos();
   var cards=L.map(function(p){
     var m=pieceMarket(p,c),u=m-n(p.cost);
-    return '<div class="pcard" data-pid="'+p.id+'"><div class="medal">'+p.k+'</div><div><div class="h"><b>'+esc(p.name)+'</b>'+amt(n(p.w),'جم',false)+'</div>'+
+    return '<div class="pcard" data-pid="'+p.id+'">'+(PH[p.id]?'<div class="medal ph" data-view="'+p.id+'" style="background-image:url('+PH[p.id]+')"><em>'+p.k+'</em></div>':'<div class="medal">'+p.k+'</div>')+'<div><div class="h"><b>'+esc(p.name)+'</b>'+amt(n(p.w),'جم',false)+'</div>'+
      '<div class="ln"><span>تكلفة '+amt(n(p.cost),'',false)+'</span><span>خام اليوم '+amt(m,'',false)+'</span><span>'+amt(u,'',true)+'</span></div></div>'+
-     '<div class="acts"><button class="btn sm main" data-act="sellpc">بيع</button><button class="btn sm" data-act="editpc">تعديل</button><button class="btn sm bad" data-act="delpc">حذف</button></div></div>';
+     '<div class="acts"><button class="btn sm main" data-act="sellpc">بيع</button><button class="btn sm" data-act="photo">'+(PH[p.id]?'تغيير الصورة':'📷 صورة')+'</button><button class="btn sm" data-act="editpc">تعديل</button><button class="btn sm bad" data-act="delpc">حذف</button></div></div>';
   }).join('');
   $('#v-stock').innerHTML=
    '<div class="grid2"><div class="stat"><div class="l">قطع في المخزون</div><div class="v num">'+L.length+'</div></div>'+
@@ -604,11 +612,13 @@ function exportCsv(){
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
   var ch=e.target.closest('.chip');if(ch){selK=+ch.dataset.k;var so=$('#setBox')&&$('#setBox').open;renderHome();if(so)$('#setBox').open=true;return}
+  var vw=e.target.closest('[data-view]');if(vw){var u=photos()[vw.dataset.view];if(u){var o=document.createElement('div');o.className='viewer';o.innerHTML='<div style="text-align:center"><img src="'+u+'" alt="صورة القطعة"><br><button class="btn sm bad" id="phDel">حذف الصورة</button> <button class="btn sm" id="phX">إغلاق</button></div>';document.body.appendChild(o);o.onclick=function(ev){if(ev.target===o||ev.target.id==='phX')o.remove();else if(ev.target.id==='phDel'){setPhoto(vw.dataset.view,null);o.remove();renderStock()}}}return}
   var rw=e.target.closest('.dr');if(rw&&!e.target.closest('button')){rw.classList.toggle('open');return}
   var b=e.target.closest('button');if(!b)return;
   if(b.dataset.tab){showTab(b.dataset.tab);return}
   if(b.dataset.cur){if(cfg.cur===b.dataset.cur)return;cfg.cur=b.dataset.cur;saveAll();F=null;newSP();renderAll();return}
   var act=b.dataset.act;if(!act)return;
+  if(act==='photo'){var pc0=b.closest('.pcard');photoPid=pc0&&pc0.dataset.pid;$('#photoIn').click();return}
   if(act==='mode'){setMode(b.dataset.m);renderAdd();return}
   if(act==='fab'){if(!F||F.id)newForm();renderAdd();showTab('add');return}
   if(act==='add'){F[b.dataset.side].push(newLeg(b.dataset.side));renderAdd();return}
@@ -616,7 +626,7 @@ document.addEventListener('click',function(e){
   if(act==='reset'){newForm();renderAdd();return}
   if(act==='save'){submitDeal();return}
   if(act==='csv'){exportCsv();return}
-  if(act==='backup'){download('gold-backup.json',JSON.stringify(snapshot()),'application/json');return}
+  if(act==='backup'){var bk=snapshot();bk.photos=photos();download('gold-backup.json',JSON.stringify(bk),'application/json');return}
   if(act==='restore'){$('#fileIn').click();return}
   if(act==='syncnow'){syncPush().then(syncPull);return}
   if(act==='mkbin'){var k=$('#sKey').value.trim();if(k)lsSet('gold_key',k);createBin();return}
@@ -651,7 +661,8 @@ document.addEventListener('change',function(e){
   if(pc&&t.dataset.f==='k'){F[pc.dataset.side][+pc.dataset.i].k=+t.value;updateSum();return}
   if(pc&&t.dataset.f==='pid'){var leg=F.out[+pc.dataset.i];leg.pid=t.value;if(leg.pid)fillLinked(leg);else{leg.name='';leg.w=''}renderAdd();return}
   if(/^c\d|^cP$/.test(t.id)){runCalc();return}
-  if(t.id==='fileIn'){var f=t.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var s=JSON.parse(rd.result);if(!s.deals&&!s.pieces)throw 0;applySnapshot(s);s.ts=Date.now();lastTs=s.ts;saveAll();newForm();renderAll();toast('تم الاسترجاع')}catch(x){toast('ملف غير صالح')}};rd.readAsText(f);return}
+  if(t.id==='photoIn'){var f0=t.files[0];t.value='';if(!f0||!photoPid)return;var pid0=photoPid;compressImg(f0,function(u){setPhoto(pid0,u);renderStock();toast('تم حفظ الصورة')});return}
+  if(t.id==='fileIn'){var f=t.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var s=JSON.parse(rd.result);if(!s.deals&&!s.pieces)throw 0;applySnapshot(s);if(s.photos){try{lsSet('gold_photos',JSON.stringify(s.photos))}catch(x){}}s.ts=Date.now();lastTs=s.ts;saveAll();newForm();renderAll();toast('تم الاسترجاع')}catch(x){toast('ملف غير صالح')}};rd.readAsText(f);return}
   var map={sOz:function(){cfg.ounce=n(t.value)},sSar:function(){cfg.usdsar=n(t.value)},sEgp:function(){cfg.usdegp=n(t.value)},sLoc:function(){cfg.local[c]=n(t.value)},sSp:function(){cfg.spread[c]=n(t.value)},sMk:function(){cfg.making[c]=n(t.value)}};
   if(map[t.id]){map[t.id]();saveAll();var open=$('#setBox').open;renderHome();$('#setBox').open=open;renderCalc();renderStock();toast('تم الحفظ')}
 });
