@@ -53,6 +53,7 @@ section[hidden]{display:none}
 .board .big small{font-family:var(--ui);font-size:14px;-webkit-text-fill-color:var(--mute);margin-inline-start:6px}
 .board .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .board .cols div{background:var(--surface2);border-radius:12px;padding:8px 10px;text-align:center}
+.board .cols.c3{grid-template-columns:repeat(3,1fr)}.board .cols em{display:block;font-style:normal;font-size:11px;color:var(--mute);margin-top:2px}.board .oz{display:flex;justify-content:space-between;margin-top:10px;padding:8px 10px;border-radius:12px;background:var(--surface2);font-size:13px;color:var(--mute)}.board .oz b{color:var(--gold-hi)}
 .board .cols span{display:block;font-size:12px;color:var(--mute)}
 /* hero */
 .hero{position:relative;overflow:hidden;background:radial-gradient(120% 140% at 100% 0%,rgba(216,174,74,.20),transparent 55%),var(--surface);border:1px solid rgba(216,174,74,.35);border-radius:18px;padding:18px;margin-block:12px}
@@ -450,9 +451,9 @@ function renderHome(){
   var bin=sbin();
   $('#v-home').innerHTML=
    '<div class="board"><div class="top"><span class="live '+(live.ok?'on':'')+'"><i></i>'+liveTxt+'</span><span>سعر الجرام ('+CURN[c]+')</span></div>'+
-   '<div class="chips" role="group" aria-label="العيار">'+chips+'</div>'+
-   (P?'<div class="big">'+fmt(kp)+'<small>عيار '+selK+'</small></div>'+
-     '<div class="cols"><div><span>سعر الشراء</span>'+amt(kb,'',false)+'</div><div><span>العالمي</span>'+amt(g,'',false)+'</div></div>':
+   (P?'<div class="big">'+fmt(pk(21,c))+'<small>عيار 21</small></div>'+
+     '<div class="cols c3">'+[24,21,18].map(function(k){return '<div><span>عيار '+k+'</span>'+amt(pk(k,c),'',false)+'<em>شراء '+fmt(p21buy(c)*k/21)+'</em></div>'}).join('')+'</div>'+
+     '<div class="oz"><span>الأونصة العالمية</span><b class="num" dir="ltr">$ '+fmt(ounce())+'</b></div>':
      '<div class="empty">اكتبي سعر الأونصة من الإعدادات.</div>')+'</div>'+
    '<div class="hero"><div class="lbl">ربح القطع المباعة</div><div class="big '+cl(prof)+'">'+amt(prof,CURN[c],true)+'</div>'+
    '<div class="sub"><span>'+L.length+' عملية</span><span>·</span><span>فرق تقييم المخزون: '+(P?amt(unreal,'',true):'—')+'</span></div></div>'+
