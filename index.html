@@ -635,48 +635,12 @@ details.expander[open] summary{margin-bottom:4px}
     <input id="assetVal" placeholder="القيمة" type="number">
     <button class="add" onclick="addItem('assets')">إضافة</button>
   </div>
-
-  <h2 style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px">الذهب (بالقطعة) <span class="tot" id="goldTotal"></span></h2>
-  <div class="subtot" id="goldWeightTot" style="margin-bottom:4px"></div>
-  <div class="subtot" id="goldPriceInfo" style="margin-bottom:10px; opacity:.75; font-size:12px"></div>
-  <div id="goldList"></div>
-  <div class="formrow">
-    <input id="goldName" placeholder="وصف القطعة (خاتم، سوار...)">
-    <input id="goldWeight" placeholder="الوزن (جم)" type="number">
-  </div>
-  <div class="formrow">
-    <select id="goldKarat" style="flex:1"><option value="21">عيار ٢١</option><option value="18">عيار ١٨</option><option value="24">عيار ٢٤</option></select>
-  </div>
-  <div class="formrow">
-    <input id="goldCost" placeholder="سعر الشراء بالريال (اختياري)" type="number">
-  </div>
-  <div class="formrow">
-    <label class="filepick" id="goldFileLabel" style="flex:1">📷 صورة القطعة (اختياري)<input id="goldFile" type="file" accept="image/*"></label>
-  </div>
-  <div class="formrow" id="goldImagePreviewRow" style="display:none; align-items:center; gap:8px">
-    <img id="goldImagePreviewImg" style="width:44px; height:44px; border-radius:8px; object-fit:cover; border:1px solid var(--line); flex:0 0 auto">
-    <span class="sub" style="flex:1; margin-bottom:0">فيه صورة مرفقة بالفعل</span>
-    <button class="del" onclick="clearGoldImagePreview()">✕</button>
-  </div>
-  <div class="formrow">
-    <button class="add" id="goldSubmitBtn" style="flex:1" onclick="addGold()">إضافة القطعة</button>
-    <button class="add" id="goldBuyBtn" style="flex:1; background:var(--accent2)" onclick="buyGoldItem()">🛒 شراء</button>
-  </div>
-  <div class="sub" id="goldBuyHint" style="margin-top:4px">"إضافة القطعة" و"شراء" الاتنين تسجيل بيانات فقط، والفرق إن "شراء" بيسجّل سعر الشراء في سجل البيع والشراء تحت. عمليات البيع والشراء منفصلة تمامًا عن ميزانية الشهر</div>
-  <button class="add" id="goldCancelBtn" style="width:100%; margin-top:8px; background:var(--sub); display:none" onclick="cancelEditGold()">إلغاء التعديل</button>
-
-  <details class="expander" id="goldHistoryDetails" style="margin-top:14px">
-    <summary>📜 سجل بيع وشراء الذهب — <span id="goldHistoryTotal">لا توجد عمليات بعد</span></summary>
-    <div style="margin-top:8px">
-      <div id="goldHistoryList"></div>
-    </div>
-  </details>
 </div>
 
 <div class="section tabview" data-tab="reports">
   <h2>📊 التقارير والملخص</h2>
   <div class="cards" style="margin-bottom:14px">
-    <div class="card"><div class="label">إجمالي الأصول</div><div class="val" id="topAssets">—</div><div class="note" id="topAssetsGoldNote" style="font-size:11px; opacity:.7; margin-top:2px"></div></div>
+    <div class="card"><div class="label">إجمالي الأصول</div><div class="val" id="topAssets">—</div></div>
     <div class="card"><div class="label">إجمالي الالتزامات</div><div class="val" id="topLiab">—</div></div>
     <div class="card"><div class="label">صافي الثروة</div><div class="val" id="netWorth">—</div></div>
     <div class="card"><div class="label">الميزانية المتبقية هذا الشهر</div><div class="val" id="remaining">—</div></div>
@@ -686,15 +650,12 @@ details.expander[open] summary{margin-bottom:4px}
   <details class="expander" id="zakatDetails">
     <summary>🕌 حاسبة الزكاة (تقديرية)</summary>
     <div style="margin-top:8px">
-      <div class="sub" style="margin-bottom:8px">تقدير تقريبي لزكاة المال، بناءً على قيمة الذهب اليوم والنقد المُدخل يدويًا، بعد خصم الالتزامات المستحقة. الزكاة تجب على المبلغ الذي حال عليه الحول (سنة هجرية كاملة) وبلغ النصاب فقط — هذا الرقم للاسترشاد، ويُستحسن مراجعة جهة شرعية موثوقة لحالتكم بالتفصيل.</div>
+      <div class="sub" style="margin-bottom:8px">تقدير تقريبي لزكاة المال، بناءً على النقد المُدخل يدويًا وسعر الذهب اليوم لحساب النصاب، بعد خصم الالتزامات المستحقة. الزكاة تجب على المبلغ الذي حال عليه الحول (سنة هجرية كاملة) وبلغ النصاب فقط — هذا الرقم للاسترشاد، ويُستحسن مراجعة جهة شرعية موثوقة لحالتكم بالتفصيل.</div>
       <div class="formrow">
         <input id="zakatCashInput" placeholder="النقد والمدخرات (كاش، حسابات بنكية...)" type="number">
         <button class="add" onclick="saveZakatCash()">حفظ</button>
       </div>
       <label style="display:flex; align-items:center; gap:6px; font-size:.85rem; color:var(--sub); margin-top:10px">
-        <input type="checkbox" id="zakatIncludeGold" checked onchange="renderZakat()"> تضمين قيمة الذهب
-      </label>
-      <label style="display:flex; align-items:center; gap:6px; font-size:.85rem; color:var(--sub); margin-top:6px">
         <input type="checkbox" id="zakatDeductLiab" checked onchange="renderZakat()"> خصم إجمالي الالتزامات المستحقة
       </label>
       <div class="cards" style="margin-top:12px; margin-bottom:0">
@@ -2091,29 +2052,18 @@ function saveLocalOnly(){
 
 function render(){
   const assetsTotal = state.assets.reduce((s,a)=>s+Number(a.value||0),0);
-  const goldValueTotal = state.gold.reduce((s,g)=>s+goldItemValue(g),0);
-  const goldWeightTotal = state.gold.reduce((s,g)=>s+Number(g.weight||0),0);
   const liabTotal = state.liabilities.reduce((s,a)=>s+Number(a.value||0),0);
-  const net = assetsTotal + goldValueTotal - liabTotal;
-  document.getElementById('topAssets').textContent = fmt(assetsTotal + goldValueTotal);
-  document.getElementById('topAssetsGoldNote').textContent = goldValueTotal ? `منها ذهب: ${fmt(goldValueTotal)}` : '';
+  const net = assetsTotal - liabTotal;
+  document.getElementById('topAssets').textContent = fmt(assetsTotal);
   document.getElementById('topLiab').textContent = fmt(liabTotal);
   document.getElementById('netWorth').textContent = fmt(net);
   document.getElementById('netWorth').className = 'val ' + (net>=0?'pos':'neg');
   document.getElementById('assetsTotal').textContent = fmt(assetsTotal);
   document.getElementById('liabTotal').textContent = fmt(liabTotal);
-  document.getElementById('goldTotal').textContent = goldValueTotal ? fmt(goldValueTotal) : '';
-  const karatParts = [18,21,24].map(k=>{ const w = state.gold.filter(g=>goldKaratOf(g)===k).reduce((a,g)=>a+Number(g.weight||0),0); return w ? `عيار ${k}: ${w.toLocaleString('en-US',{maximumFractionDigits:2})} جم` : ''; }).filter(Boolean);
-  document.getElementById('goldWeightTot').textContent = state.gold.length
-    ? `إجمالي الوزن: ${goldWeightTotal.toLocaleString('en-US', {maximumFractionDigits:2})} جم` + (karatParts.length>1 ? ` (${karatParts.join(' · ')})` : '') : '';
-  document.getElementById('goldPriceInfo').textContent = goldPricePerGram21k
-    ? `سعر جرام الذهب عيار ٢١ اليوم: ${fmt(goldPricePerGram21k)} / جم${goldPriceUpdatedAt ? ' (محدث ' + new Date(goldPriceUpdatedAt).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ')' : ''}`
-    : 'جارِ تحديث سعر الذهب...';
 
   renderList('assetsList','assets');
   renderList('liabList','liabilities');
   renderNuqta();
-  renderGold();
   renderGoals();
   renderZakat();
   updateChatBadge();
@@ -2643,9 +2593,8 @@ function renderZakat(){
   const wealthEl = document.getElementById('zakatWealth');
   const dueEl = document.getElementById('zakatDue');
   const cashInput = document.getElementById('zakatCashInput');
-  const includeGoldEl = document.getElementById('zakatIncludeGold');
   const deductLiabEl = document.getElementById('zakatDeductLiab');
-  if(!nisabEl || !wealthEl || !dueEl || !cashInput || !includeGoldEl || !deductLiabEl) return;
+  if(!nisabEl || !wealthEl || !dueEl || !cashInput || !deductLiabEl) return;
 
   // never overwrite the field while the person is actively typing in it
   if(document.activeElement !== cashInput){
@@ -2653,12 +2602,10 @@ function renderZakat(){
   }
 
   const cash = Number(state.zakatCash || 0);
-  const includeGold = includeGoldEl.checked;
   const deductLiab = deductLiabEl.checked;
-  const goldValueTotal = state.gold.reduce((s,g)=>s + goldItemValue(g), 0);
   const liabTotal = state.liabilities.reduce((s,l)=>s + Number(l.value||0), 0);
 
-  let wealth = cash + (includeGold ? goldValueTotal : 0);
+  let wealth = cash;
   if(deductLiab) wealth -= liabTotal;
   wealth = Math.max(0, wealth);
   wealthEl.textContent = fmt(wealth);
