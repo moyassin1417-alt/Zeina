@@ -178,7 +178,7 @@ nav button[aria-current="page"]{color:var(--gold);background:var(--gold-soft)}
 (function(){
 'use strict';
 var KARATS=[24,22,21,18,14,9], CURN={SAR:'ريال',EGP:'جنيه'};
-var cfg={cur:'SAR',ounce:0,usdsar:3.75,usdegp:0,local:{SAR:0,EGP:0},making:{SAR:0,EGP:0},spread:{SAR:0,EGP:0}};
+var cfg={cur:'SAR',ounce:0,usdsar:3.75,usdegp:0,local:{SAR:0,EGP:0},making:{SAR:0,EGP:0},spread:{SAR:0,EGP:0},dewan:{SAR:0,EGP:0}};
 var deals=[], pieces=[], tab='home', F=null, SP=null, live={ounce:0,egp:0,at:0,ok:false};
 var dirty=false, syncT=null, lastTs=0;
 
@@ -203,7 +203,7 @@ function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function ounce(){return live.ounce>0?live.ounce:cfg.ounce}
 function rateOf(c){return c==='SAR'?cfg.usdsar:(live.egp>0?live.egp:cfg.usdegp)}
 function g24(c){var r=rateOf(c),o=ounce();return (o>0&&r>0)?o/31.1034768*r:0}
-function p21(c){var l=cfg.local[c];return l>0?l:g24(c)*21/24}         /* سعر البيع للجمهور */
+function p21(c){var l=cfg.local[c];if(l>0)return l;var g=g24(c)*21/24;return g>0?g+n(cfg.dewan[c]):0}         /* سعر البيع للجمهور */
 function p21buy(c){var p=p21(c);return p>0?Math.max(0,p-n(cfg.spread[c])):0} /* سعر شراء الكسر */
 function pk(k,c){return p21(c)*k/21}
 
@@ -231,7 +231,7 @@ function pieceMarket(p,c){return n(p.w)*p21buy(c)*(+p.k)/21}
 function snapshot(){return {v:2,ts:Date.now(),cfg:cfg,deals:deals,pieces:pieces}}
 function applySnapshot(s){
   if(!s)return;
-  if(s.cfg){for(var k in s.cfg){if(k==='local'||k==='making'||k==='spread')cfg[k]=Object.assign({SAR:0,EGP:0},s.cfg[k]);else cfg[k]=s.cfg[k]}}
+  if(s.cfg){for(var k in s.cfg){if(k==='local'||k==='making'||k==='spread'||k==='dewan')cfg[k]=Object.assign({SAR:0,EGP:0},s.cfg[k]);else cfg[k]=s.cfg[k]}}
   deals=s.deals||[];pieces=s.pieces||[];lastTs=s.ts||0;
 }
 function saveAll(){
@@ -529,7 +529,8 @@ function renderHome(){
     '<div class="row"><div class="f"><label for="sOz">الأونصة بالدولار (احتياطي لو مفيش اتصال)</label><input id="sOz" inputmode="decimal" value="'+(cfg.ounce||'')+'"></div>'+
     '<div class="f"><label for="sSar">دولار / ريال</label><input id="sSar" inputmode="decimal" value="'+(cfg.usdsar||'')+'"></div></div>'+
     '<div class="row"><div class="f"><label for="sEgp">دولار / جنيه (احتياطي)</label><input id="sEgp" inputmode="decimal" value="'+(cfg.usdegp||'')+'"></div>'+
-    '<div class="f"><label for="sLoc">سعر جرام 21 بالسوق ('+CURN[c]+')</label><input id="sLoc" inputmode="decimal" placeholder="فاضي = العالمي" value="'+(cfg.local[c]||'')+'"></div></div>'+
+    '<div class="f"><label for="sLoc">سعر جرام 21 بالسوق ('+CURN[c]+')</label><input id="sLoc" inputmode="decimal" placeholder="فاضي = تلقائي" value="'+(cfg.local[c]||'')+'"></div></div>'+
+    '<div class="f"><label for="sDw">فرق ديوان الذهب فوق السعر العالمي (لجرام 21، '+CURN[c]+')</label><input id="sDw" inputmode="decimal" placeholder="مثال: 12" value="'+(cfg.dewan[c]||'')+'"></div>'+
     '<div class="row"><div class="f"><label for="sSp">خصم الشراء عن البيع (لجرام 21)</label><input id="sSp" inputmode="decimal" value="'+(cfg.spread[c]||'')+'"></div>'+
     '<div class="f"><label for="sMk">مصنعيتك الافتراضية/جم</label><input id="sMk" inputmode="decimal" value="'+(cfg.making[c]||'')+'"></div></div>'+
     '<h2 style="margin-top:14px">رمز الدخول <span class="tag">'+(lsGet('gold_pin')?'مفعّل':'غير مفعّل')+'</span></h2>'+
@@ -664,7 +665,7 @@ document.addEventListener('change',function(e){
   if(pc&&t.dataset.f==='pid'){var leg=F.out[+pc.dataset.i];leg.pid=t.value;if(leg.pid)fillLinked(leg);else{leg.name='';leg.w=''}renderAdd();return}
   if(/^c\d|^cP$/.test(t.id)){runCalc();return}
   if(t.id==='fileIn'){var f=t.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var s=JSON.parse(rd.result);if(!s.deals&&!s.pieces)throw 0;applySnapshot(s);s.ts=Date.now();lastTs=s.ts;saveAll();newForm();renderAll();toast('تم الاسترجاع')}catch(x){toast('ملف غير صالح')}};rd.readAsText(f);return}
-  var map={sOz:function(){cfg.ounce=n(t.value)},sSar:function(){cfg.usdsar=n(t.value)},sEgp:function(){cfg.usdegp=n(t.value)},sLoc:function(){cfg.local[c]=n(t.value)},sSp:function(){cfg.spread[c]=n(t.value)},sMk:function(){cfg.making[c]=n(t.value)}};
+  var map={sOz:function(){cfg.ounce=n(t.value)},sSar:function(){cfg.usdsar=n(t.value)},sEgp:function(){cfg.usdegp=n(t.value)},sLoc:function(){cfg.local[c]=n(t.value)},sSp:function(){cfg.spread[c]=n(t.value)},sMk:function(){cfg.making[c]=n(t.value)},sDw:function(){cfg.dewan[c]=n(t.value)}};
   if(map[t.id]){map[t.id]();saveAll();var open=$('#setBox').open;renderHome();$('#setBox').open=open;renderCalc();renderStock();toast('تم الحفظ')}
 });
 
