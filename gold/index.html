@@ -222,6 +222,9 @@ function calc(d){
   if(n(d.sellTotal)>0)sell=n(d.sellTotal);
   d.in.forEach(function(p){buy+=inVal(p,n(d.pBuy));i21+=leg21(p)});
   var exp=sell-buy, manual=!(d.cash===''||d.cash==null), cash=manual?n(d.cash):exp;
+  /* شراء بس = فلوس مدفوعة، بيع بس = فلوس مستلمة، مهما كانت الإشارة اللي اتكتبت */
+  if(manual&&!d.out.length&&d.in.length)cash=-Math.abs(cash);
+  if(manual&&!d.in.length&&d.out.length)cash=Math.abs(cash);
   return {sell:sell,buy:buy,exp:exp,cash:cash,gold:i21-o21,o21:o21,i21:i21,basis:basis,profit:d.out.length?sell-basis:0};
 }
 /* ---------- cycles: بيع ← إعادة شراء ----------
@@ -380,7 +383,7 @@ function renderAdd(){
      F.in.map(function(p,i){return legHtml('in',i,p)}).join('')+'</div>':'')+
    '<div class="card"><h2>الحساب</h2><div id="sum"></div>'+
     '<div class="f"><label for="fCash" id="fCashL">النقد الفعلي</label><input id="fCash" inputmode="decimal" value="'+esc(F.cash)+'"></div>'+
-    '<p class="note" style="margin:0">اتركه فاضي لو الفرق اتسوّى بالسعر المحسوب، أو اكتب اللي حصل فعلًا (+ استلمت، − دفعت).</p></div>'+
+    '<p class="note" style="margin:0">'+(md==='swap'?'اتركه فاضي لو الفرق اتسوّى بالسعر المحسوب، أو اكتب اللي حصل فعلًا (+ استلمت، − دفعت).':(md==='buy'?'اكتب المبلغ اللي دفعته فعلًا (من غير إشارة)، أو سيبه فاضي.':'اكتب المبلغ اللي استلمته فعلًا (من غير إشارة)، أو سيبه فاضي.'))+'</p></div>'+
    '<div class="card"><h2>الدورة (بيع ← إعادة شراء)</h2><div id="cyc"></div>'+
 '</div>'+
    '<div class="row"><button class="btn main wide" data-act="save">'+(F.id?'حفظ التعديل':'حفظ العملية')+'</button>'+
