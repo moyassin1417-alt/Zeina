@@ -225,26 +225,28 @@ function calc(d){
   return {sell:sell,buy:buy,exp:exp,cash:cash,gold:i21-o21,o21:o21,i21:i21,basis:basis,profit:d.out.length?sell-basis:0};
 }
 /* ---------- cycles: بيع ← إعادة شراء ----------
-   البيع يفتح دورة (كاش معلّق)، والشراء يقفلها وساعتها بس يطلع الربح.
-   ربح الدورة = (جرامات اشتريتها − جرامات بعتها) × سعر الخام يوم الشراء + صافي الكاش. */
+   البيع يفتح دورة، وتفضل مفتوحة لحد ما الوزن المباع (مكافئ 21) يرجع كله بالشراء.
+   تكلفة الاسترجاع = الوزن المباع × متوسط تكلفة جرام الشراء في الدورة.
+   ربح الدورة = إجمالي البيع − تكلفة الاسترجاع. الزيادة في الوزن = مخزون جديد بتكلفته. */
 function legMaking(p){return n(p.w)*n(p.m)}
 function asc(a,b){return a.date===b.date?(a.ts||0)-(b.ts||0):(a.date<b.date?-1:1)}
 function buildCycles(L){
   var out=[],open=null;
   L.slice().sort(asc).forEach(function(d){
-    var k=calc(d),hasOut=d.out.length>0,hasIn=d.in.length>0;
+    var k=calc(d),hasOut=d.out.length>0;
     if(!open&&!hasOut)return; /* شراء بفلوس جديدة: مش دورة */
-    if(!open)open={id:d.id,deals:[],outG:0,inG:0,cash:0,making:0,start:d.date,closed:false};
-    open.deals.push(d);open.outG+=k.o21;open.inG+=k.i21;open.cash+=k.cash;
+    if(!open)open={id:d.id,deals:[],outG:0,inG:0,sell:0,buy:0,cash:0,making:0,start:d.date,closed:false};
+    open.deals.push(d);open.outG+=k.o21;open.inG+=k.i21;
+    open.sell+=k.sell+(k.cash-k.exp);open.buy+=k.buy;open.cash+=k.cash; /* فرق النقد الفعلي يتحمّل على البيع */
     d.in.forEach(function(p){open.making+=legMaking(p)});
-    if(hasIn&&!d.keepOpen){
-      var P=n(d.pBuy)||n(d.pSell);
-      open.closed=true;open.end=d.date;open.P=P;open.wg=open.inG-open.outG;
-      open.profit=open.wg*P+open.cash;open.pg=P>0?open.wg+open.cash/P:0;
-      out.push(open);open=null;
+    open.rem=open.outG-open.inG;
+    if(open.inG>0&&open.rem<=0.005){
+      var c=open;c.closed=true;c.end=d.date;c.cpg=c.buy/c.inG;c.repl=c.outG*c.cpg;
+      c.profit=c.sell-c.repl;c.extraG=c.inG-c.outG;c.extraCost=c.extraG*c.cpg;c.pg=c.cpg>0?c.profit/c.cpg:0;
+      out.push(c);open=null;
     }
   });
-  if(open){open.wg=open.inG-open.outG;out.push(open)}
+  if(open)out.push(open);
   return out;
 }
 function cycleStats(C){
@@ -321,14 +323,14 @@ function subLine(){var P=p21(cfg.cur);return P?('عيار 21: '+fmt(P)+' '+CURN[
 function newLeg(side){return side==='out'?{pid:'',name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}:{name:'',k:21,w:'',m:'',total:''}}
 function newForm(){
   var s=p21(cfg.cur),b=p21buy(cfg.cur);
-  F={id:null,date:today(),note:'',cur:cfg.cur,pSell:s?String(r2(s)):'',pBuy:b?String(r2(b)):'',sellTotal:'',out:[newLeg('out')],in:[newLeg('in')],cash:'',mode:null,keepOpen:false};
+  F={id:null,date:today(),note:'',cur:cfg.cur,pSell:s?String(r2(s)):'',pBuy:b?String(r2(b)):'',sellTotal:'',out:[newLeg('out')],in:[newLeg('in')],cash:'',mode:null};
 }
 function formFromDeal(d){
   var k=calc(d),man=Math.abs(k.cash-k.exp)>0.005;
   F={id:d.id,date:d.date,note:d.note||'',cur:d.cur,pSell:String(d.pSell),pBuy:String(d.pBuy),sellTotal:d.sellTotal?String(d.sellTotal):'',
      out:d.out.map(function(p){return {pid:p.pid||'',name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||''),cost:p.pid?'':(p.cost?String(p.cost):'')}}),
      in:d.in.map(function(p){return {name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||''),total:p.total?String(p.total):''}}),
-     cash:man?String(r2(k.cash)):'',keepOpen:!!d.keepOpen,ts:d.ts,mode:d.out.length&&d.in.length?'swap':(d.out.length?'sell':'buy')};
+     cash:man?String(r2(k.cash)):'',ts:d.ts,mode:d.out.length&&d.in.length?'swap':(d.out.length?'sell':'buy')};
 }
 function stockOptions(sel,usedIds){
   var cur=F.cur,list=stockList(cur).filter(function(p){return p.id===sel||usedIds.indexOf(p.id)<0});
@@ -380,7 +382,7 @@ function renderAdd(){
     '<div class="f"><label for="fCash" id="fCashL">النقد الفعلي</label><input id="fCash" inputmode="decimal" value="'+esc(F.cash)+'"></div>'+
     '<p class="note" style="margin:0">اتركه فاضي لو الفرق اتسوّى بالسعر المحسوب، أو اكتب اللي حصل فعلًا (+ استلمت، − دفعت).</p></div>'+
    '<div class="card"><h2>الدورة (بيع ← إعادة شراء)</h2><div id="cyc"></div>'+
-    (showB?'<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13.5px;color:var(--ink)"><input type="checkbox" id="fKeep" style="width:20px;min-height:20px"'+(F.keepOpen?' checked':'')+'> لسه هشتري تاني بفلوس البيع (خلي الدورة مفتوحة)</label>':'')+'</div>'+
+'</div>'+
    '<div class="row"><button class="btn main wide" data-act="save">'+(F.id?'حفظ التعديل':'حفظ العملية')+'</button>'+
    '<button class="btn wide" data-act="reset">'+(F.id?'إلغاء':'مسح')+'</button></div>';
   updateSum();
@@ -406,20 +408,22 @@ function cyclePreview(){
   var box=$('#cyc');if(!box)return;
   var out=F.out.filter(function(p){return n(p.w)>0}),inn=F.in.filter(function(p){return n(p.w)>0});
   if(!out.length&&!inn.length){box.innerHTML='<p class="note" style="margin:0">أضف القطع وهيظهر هنا وضع الدورة.</p>';return}
-  var t={id:'__f',date:F.date||today(),ts:F.ts||Date.now(),cur:F.cur,pSell:n(F.pSell),pBuy:n(F.pBuy),sellTotal:n(F.sellTotal)||0,cash:F.cash,out:out,in:inn,keepOpen:!!(F.keepOpen&&inn.length)};
+  var t={id:'__f',date:F.date||today(),ts:F.ts||Date.now(),cur:F.cur,pSell:n(F.pSell),pBuy:n(F.pBuy),sellTotal:n(F.sellTotal)||0,cash:F.cash,out:out,in:inn};
   var L=myDeals().filter(function(d){return d.id!==F.id}).concat([t]);
   var C=buildCycles(L),c=null;C.forEach(function(x){if(x.deals.some(function(d){return d.id==='__f'}))c=x});
   var u=CURN[F.cur];
   if(!c){box.innerHTML='<p class="note" style="margin:0">شراء بفلوس جديدة، مفيش دورة مفتوحة. القطعة هتدخل المخزون من غير ما تتحسب ربح.</p>';return}
   var h='<div class="res">'+(c.deals.length>1?'<div><span>عمليات في الدورة</span><b class="num">'+c.deals.length+'</b></div>':'')+
     '<div><span>بعت (مكافئ 21)</span><b class="num">'+fmt(c.outG)+' جم</b></div>'+
-    '<div><span>اشتريت (مكافئ 21)</span><b class="num">'+fmt(c.inG)+' جم</b></div>'+
-    '<div><span>فرق الوزن</span><b class="num '+cl(c.wg)+'">'+sg(c.wg)+' جم</b></div>'+
-    '<div><span>صافي الكاش</span><b class="num '+cl(c.cash)+'">'+sg(c.cash)+'</b></div>';
-  if(c.closed)h+='<div><span>سعر الخام المستخدم</span><b class="num">'+fmt(c.P)+'</b></div>'+
+    '<div><span>رجع بالشراء</span><b class="num">'+fmt(c.inG)+' جم</b></div>'+
+    '<div><span>إجمالي البيع</span><b class="num">'+fmt(c.sell)+'</b></div>';
+  if(c.closed)h+='<div><span>تكلفة استرجاع '+fmt(c.outG)+' جم ('+fmt(c.cpg)+'/جم)</span><b class="num">'+fmt(c.repl)+'</b></div>'+
     '<div class="tot"><span>ربح الدورة</span><b class="num '+cl(c.profit)+'">'+sg(c.profit)+' '+u+'</b></div>'+
-    '<div><span>بالجرام</span><b class="num '+cl(c.pg)+'">'+sg(c.pg)+' جم</b></div>';
-  else h+='<div class="tot"><span>الدورة مفتوحة</span><b>الربح يظهر بعد الشراء</b></div>';
+    '<div><span>بالجرام (بسعر شرائك)</span><b class="num '+cl(c.pg)+'">'+sg(c.pg)+' جم</b></div>'+
+    (c.extraG>0.005?'<div><span>زيادة تدخل مخزون جديد</span><b class="num">'+fmt(c.extraG)+' جم · '+fmt(c.extraCost)+'</b></div>':'');
+  else h+='<div><span>اشتريت لحد دلوقتي</span><b class="num">'+fmt(c.buy)+'</b></div>'+
+    '<div class="tot"><span>فاضل يرجع</span><b class="num">'+fmt(c.rem)+' جم</b></div>'+
+    '<div><span>الدورة مفتوحة</span><b>الربح يظهر لما الوزن يرجع كله</b></div>';
   box.innerHTML=h+'</div>';
 }
 function revertDeal(id){
@@ -438,7 +442,6 @@ function submitDeal(){
   var id=F.id||('d'+Date.now());
   var d={id:id,date:F.date||today(),note:F.note.trim(),cur:F.cur,pSell:n(F.pSell),pBuy:n(F.pBuy),cash:null,ts:F.ts||Date.now(),out:[],in:[]};
   if(n(F.sellTotal)>0)d.sellTotal=n(F.sellTotal);
-  if(F.keepOpen&&inn.length)d.keepOpen=true;
   out.forEach(function(p){
     var leg={pid:p.pid||'',name:p.name.trim(),k:+p.k,w:n(p.w),m:n(p.m)};
     if(p.pid){var pc=byId(pieces,p.pid);if(pc){leg.name=pc.name;leg.k=pc.k;leg.w=n(pc.w);leg.basis=n(pc.cost);pc.status='sold';pc.soldDeal=id}}
@@ -570,9 +573,10 @@ function renderHome(){
    '<div class="sub"><span>'+amt(CY.pg,'جم',true)+'</span><span>·</span><span>'+CY.n+' دورة</span><span>·</span><span>'+L.length+' عملية</span></div>'+
    '<div class="sub" style="margin-top:4px"><span>ربح القطع المباعة (بالتكلفة): '+amt(prof,'',true)+'</span><span>·</span><span>فرق تقييم المخزون: '+(P?amt(unreal,'',true):'—')+'</span></div></div>'+
    (oc?'<div class="card" style="border-color:rgba(120,160,255,.35)"><h2>دورة مفتوحة · من '+oc.start.slice(8)+' '+MONTHS[+oc.start.slice(5,7)-1]+'</h2>'+
-     '<div class="grid2"><div><div class="note">بعتي (مكافئ 21)</div>'+amt(oc.outG,'جم',false)+'</div><div><div class="note">كاش معلّق</div>'+amt(oc.cash,'',true)+'</div></div>'+
-     (oc.inG>0?'<p class="note" style="margin:8px 0 0">اشتريتي لحد دلوقتي '+fmt(oc.inG)+' جم.</p>':'')+
-     '<p class="note" style="margin:8px 0 0">الربح هيتحسب أول ما تشتري وتقفلي الدورة.</p></div>':'')+
+     '<div class="grid2"><div><div class="note">فاضل يرجع (مكافئ 21)</div>'+amt(oc.rem,'جم',false)+'</div><div><div class="note">كاش معلّق</div>'+amt(oc.cash,'',true)+'</div></div>'+
+     '<div class="meter"><i class="mf" style="width:'+Math.min(100,oc.inG/oc.outG*100)+'%"></i></div>'+
+     '<div class="meter-l"><span>رجع '+fmt(oc.inG)+' جم</span><span>من '+fmt(oc.outG)+' جم</span></div>'+
+     '<p class="note" style="margin:8px 0 0">الربح هيتحسب لما الوزن المباع يرجع كله، والزيادة تدخل مخزون جديد.</p></div>':'')+
    '<div class="grid2"><div class="stat"><div class="l">صافي النقد من العمليات</div><div class="v">'+amt(cash,'',true)+'</div></div>'+
    '<div class="stat"><div class="l">مخزونك (مكافئ 21)</div><div class="v">'+amt(w21,'جم',false)+'</div></div></div>'+
    (openG>0&&P?'<div class="card"><h2>الميزان بالوزن (مكافئ 21)</h2>'+
@@ -640,14 +644,16 @@ function renderCycles(L){
   if(!C.length)return '<div class="card empty">لسه مفيش دورات. أول ما تبيعي قطعة هتتفتح دورة، وتتقفل لما تشتري.</div>';
   return C.map(function(c){
     var rng=c.closed?(c.start===c.end?dl2(c.end):dl2(c.start)+' ← '+dl2(c.end)):('من '+dl2(c.start));
-    var right=c.closed?amt(c.profit,'',true)+'<small>ربح · '+sg(c.pg)+' جم</small>':'<span class="amt"><b>'+sg(c.cash)+'</b></span><small>كاش معلّق</small>';
+    var right=c.closed?amt(c.profit,'',true)+'<small>ربح · '+sg(c.pg)+' جم</small>':amt(c.rem,'جم',false,'')+'<small>فاضل يرجع</small>';
     return '<div class="dr"><div class="hd"><span class="badge '+(c.closed?'sell':'swap')+'">'+(c.closed?'مقفولة':'مفتوحة')+'</span>'+
       '<div class="tt"><b>بعتي '+fmt(c.outG)+' جم ← اشتريتي '+fmt(c.inG)+' جم</b><span>'+rng+'</span></div>'+
       '<div class="rt">'+right+'</div></div>'+
       '<div class="more">'+c.deals.map(function(d){return '<p>'+dl2(d.date)+' · '+esc(dealTitle(d))+' · نقد '+amt(calc(d).cash,'',true)+'</p>'}).join('')+
-      '<p>فرق الوزن '+amt(c.wg,'جم',true)+' · صافي الكاش '+amt(c.cash,'',true)+'</p>'+
-      (c.making>0?'<p>مصنعية دفعتيها في الشراء '+amt(c.making,'',false)+' (محسوبة ضمن التكلفة)</p>':'')+
-      (c.closed?'<p>الربح = '+sg(c.wg)+' × '+fmt(c.P)+' (خام يوم الشراء) '+(c.cash<0?'−':'+')+' '+fmt(Math.abs(c.cash))+' = <b class="'+cl(c.profit)+'">'+sg(c.profit)+' '+u+'</b></p>':'<p>الربح هيظهر بعد الشراء.</p>')+
+      '<p>البيع '+amt(c.sell,'',false)+' · الشراء '+amt(c.buy,'',false)+' · صافي الكاش '+amt(c.cash,'',true)+'</p>'+
+      (c.making>0?'<p>مصنعية دفعتيها في الشراء '+amt(c.making,'',false)+' (داخلة في تكلفة الجرام)</p>':'')+
+      (c.closed?'<p>الربح = '+fmt(c.sell)+' − ('+fmt(c.outG)+' جم × '+fmt(c.cpg)+') = <b class="'+cl(c.profit)+'">'+sg(c.profit)+' '+u+'</b></p>'+
+        (c.extraG>0.005?'<p>الزيادة '+fmt(c.extraG)+' جم دخلت مخزون جديد بتكلفة '+fmt(c.extraCost)+'</p>':''):
+        '<p>رجع '+fmt(c.inG)+' من '+fmt(c.outG)+' جم. الربح يظهر لما الوزن يرجع كله.</p>')+
       '</div></div>';
   }).join('');
 }
@@ -741,7 +747,6 @@ document.addEventListener('input',function(e){
 });
 document.addEventListener('change',function(e){
   var t=e.target,c=cfg.cur,pc=t.closest&&t.closest('.pc');
-  if(t.id==='fKeep'){F.keepOpen=t.checked;updateSum();return}
   if(pc&&t.dataset.f==='k'){F[pc.dataset.side][+pc.dataset.i].k=+t.value;updateSum();return}
   if(pc&&t.dataset.f==='pid'){var leg=F.out[+pc.dataset.i];leg.pid=t.value;if(leg.pid)fillLinked(leg);else{leg.name='';leg.w=''}renderAdd();return}
   if(/^c\d|^cP$/.test(t.id)){runCalc();return}
