@@ -224,6 +224,37 @@ function calc(d){
   var exp=sell-buy, manual=!(d.cash===''||d.cash==null), cash=manual?n(d.cash):exp;
   return {sell:sell,buy:buy,exp:exp,cash:cash,gold:i21-o21,o21:o21,i21:i21,basis:basis,profit:d.out.length?sell-basis:0};
 }
+/* ---------- cycles: بيع ← إعادة شراء ----------
+   البيع يفتح دورة (كاش معلّق)، والشراء يقفلها وساعتها بس يطلع الربح.
+   ربح الدورة = (جرامات اشتريتها − جرامات بعتها) × سعر الخام يوم الشراء + صافي الكاش. */
+function legMaking(p){return n(p.w)*n(p.m)}
+function asc(a,b){return a.date===b.date?(a.ts||0)-(b.ts||0):(a.date<b.date?-1:1)}
+function buildCycles(L){
+  var out=[],open=null;
+  L.slice().sort(asc).forEach(function(d){
+    var k=calc(d),hasOut=d.out.length>0,hasIn=d.in.length>0;
+    if(!open&&!hasOut)return; /* شراء بفلوس جديدة: مش دورة */
+    if(!open)open={id:d.id,deals:[],outG:0,inG:0,cash:0,making:0,start:d.date,closed:false};
+    open.deals.push(d);open.outG+=k.o21;open.inG+=k.i21;open.cash+=k.cash;
+    d.in.forEach(function(p){open.making+=legMaking(p)});
+    if(hasIn&&!d.keepOpen){
+      var P=n(d.pBuy)||n(d.pSell);
+      open.closed=true;open.end=d.date;open.P=P;open.wg=open.inG-open.outG;
+      open.profit=open.wg*P+open.cash;open.pg=P>0?open.wg+open.cash/P:0;
+      out.push(open);open=null;
+    }
+  });
+  if(open){open.wg=open.inG-open.outG;out.push(open)}
+  return out;
+}
+function cycleStats(C){
+  var s={n:0,profit:0,pg:0,months:{},open:null};
+  C.forEach(function(c){
+    if(!c.closed){s.open=c;return}
+    s.n++;s.profit+=c.profit;s.pg+=c.pg;var m=c.end.slice(0,7);s.months[m]=(s.months[m]||0)+c.profit;
+  });
+  return s;
+}
 function stockList(c){return pieces.filter(function(p){return p.cur===c&&p.status==='stock'}).sort(function(a,b){return a.date<b.date?1:-1})}
 function pieceMarket(p,c){return n(p.w)*p21buy(c)*(+p.k)/21}
 
@@ -290,14 +321,14 @@ function subLine(){var P=p21(cfg.cur);return P?('عيار 21: '+fmt(P)+' '+CURN[
 function newLeg(side){return side==='out'?{pid:'',name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}:{name:'',k:21,w:'',m:'',total:''}}
 function newForm(){
   var s=p21(cfg.cur),b=p21buy(cfg.cur);
-  F={id:null,date:today(),note:'',cur:cfg.cur,pSell:s?String(r2(s)):'',pBuy:b?String(r2(b)):'',sellTotal:'',out:[newLeg('out')],in:[newLeg('in')],cash:'',mode:null};
+  F={id:null,date:today(),note:'',cur:cfg.cur,pSell:s?String(r2(s)):'',pBuy:b?String(r2(b)):'',sellTotal:'',out:[newLeg('out')],in:[newLeg('in')],cash:'',mode:null,keepOpen:false};
 }
 function formFromDeal(d){
   var k=calc(d),man=Math.abs(k.cash-k.exp)>0.005;
   F={id:d.id,date:d.date,note:d.note||'',cur:d.cur,pSell:String(d.pSell),pBuy:String(d.pBuy),sellTotal:d.sellTotal?String(d.sellTotal):'',
      out:d.out.map(function(p){return {pid:p.pid||'',name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||''),cost:p.pid?'':(p.cost?String(p.cost):'')}}),
      in:d.in.map(function(p){return {name:p.name||'',k:p.k,w:String(p.w),m:String(p.m||''),total:p.total?String(p.total):''}}),
-     cash:man?String(r2(k.cash)):'',mode:d.out.length&&d.in.length?'swap':(d.out.length?'sell':'buy')};
+     cash:man?String(r2(k.cash)):'',keepOpen:!!d.keepOpen,ts:d.ts,mode:d.out.length&&d.in.length?'swap':(d.out.length?'sell':'buy')};
 }
 function stockOptions(sel,usedIds){
   var cur=F.cur,list=stockList(cur).filter(function(p){return p.id===sel||usedIds.indexOf(p.id)<0});
@@ -348,6 +379,8 @@ function renderAdd(){
    '<div class="card"><h2>الحساب</h2><div id="sum"></div>'+
     '<div class="f"><label for="fCash" id="fCashL">النقد الفعلي</label><input id="fCash" inputmode="decimal" value="'+esc(F.cash)+'"></div>'+
     '<p class="note" style="margin:0">اتركه فاضي لو الفرق اتسوّى بالسعر المحسوب، أو اكتب اللي حصل فعلًا (+ استلمت، − دفعت).</p></div>'+
+   '<div class="card"><h2>الدورة (بيع ← إعادة شراء)</h2><div id="cyc"></div>'+
+    (showB?'<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13.5px;color:var(--ink)"><input type="checkbox" id="fKeep" style="width:20px;min-height:20px"'+(F.keepOpen?' checked':'')+'> لسه هشتري تاني بفلوس البيع (خلي الدورة مفتوحة)</label>':'')+'</div>'+
    '<div class="row"><button class="btn main wide" data-act="save">'+(F.id?'حفظ التعديل':'حفظ العملية')+'</button>'+
    '<button class="btn wide" data-act="reset">'+(F.id?'إلغاء':'مسح')+'</button></div>';
   updateSum();
@@ -367,6 +400,27 @@ function updateSum(){
    '<div><span>فرق الوزن (مكافئ 21)</span><b class="num '+cl(k.gold)+'">'+sg(k.gold)+' جم</b></div>'+
    '<div class="tot"><span>ربح القطع المباعة</span><b class="num '+cl(k.profit)+'">'+sg(k.profit)+' '+CURN[F.cur]+'</b></div></div>';
   $('#fCashL').textContent='النقد الفعلي (المحسوب: '+sg(k.exp)+')';
+  cyclePreview();
+}
+function cyclePreview(){
+  var box=$('#cyc');if(!box)return;
+  var out=F.out.filter(function(p){return n(p.w)>0}),inn=F.in.filter(function(p){return n(p.w)>0});
+  if(!out.length&&!inn.length){box.innerHTML='<p class="note" style="margin:0">أضف القطع وهيظهر هنا وضع الدورة.</p>';return}
+  var t={id:'__f',date:F.date||today(),ts:F.ts||Date.now(),cur:F.cur,pSell:n(F.pSell),pBuy:n(F.pBuy),sellTotal:n(F.sellTotal)||0,cash:F.cash,out:out,in:inn,keepOpen:!!(F.keepOpen&&inn.length)};
+  var L=myDeals().filter(function(d){return d.id!==F.id}).concat([t]);
+  var C=buildCycles(L),c=null;C.forEach(function(x){if(x.deals.some(function(d){return d.id==='__f'}))c=x});
+  var u=CURN[F.cur];
+  if(!c){box.innerHTML='<p class="note" style="margin:0">شراء بفلوس جديدة، مفيش دورة مفتوحة. القطعة هتدخل المخزون من غير ما تتحسب ربح.</p>';return}
+  var h='<div class="res">'+(c.deals.length>1?'<div><span>عمليات في الدورة</span><b class="num">'+c.deals.length+'</b></div>':'')+
+    '<div><span>بعت (مكافئ 21)</span><b class="num">'+fmt(c.outG)+' جم</b></div>'+
+    '<div><span>اشتريت (مكافئ 21)</span><b class="num">'+fmt(c.inG)+' جم</b></div>'+
+    '<div><span>فرق الوزن</span><b class="num '+cl(c.wg)+'">'+sg(c.wg)+' جم</b></div>'+
+    '<div><span>صافي الكاش</span><b class="num '+cl(c.cash)+'">'+sg(c.cash)+'</b></div>';
+  if(c.closed)h+='<div><span>سعر الخام المستخدم</span><b class="num">'+fmt(c.P)+'</b></div>'+
+    '<div class="tot"><span>ربح الدورة</span><b class="num '+cl(c.profit)+'">'+sg(c.profit)+' '+u+'</b></div>'+
+    '<div><span>بالجرام</span><b class="num '+cl(c.pg)+'">'+sg(c.pg)+' جم</b></div>';
+  else h+='<div class="tot"><span>الدورة مفتوحة</span><b>الربح يظهر بعد الشراء</b></div>';
+  box.innerHTML=h+'</div>';
 }
 function revertDeal(id){
   pieces=pieces.filter(function(p){return p.srcDeal!==id});
@@ -382,8 +436,9 @@ function submitDeal(){
   if((out.length&&n(F.pSell)<=0)||(inn.length&&n(F.pBuy)<=0)){toast('اكتب سعر الجرام للبيع/الشراء');return}
   if(F.id){var b=blocked(F.id);if(b){toast('القطعة "'+(b.name||'')+'" اتباعت في عملية لاحقة، عدّل تلك أولًا');return}revertDeal(F.id)}
   var id=F.id||('d'+Date.now());
-  var d={id:id,date:F.date||today(),note:F.note.trim(),cur:F.cur,pSell:n(F.pSell),pBuy:n(F.pBuy),cash:null,ts:Date.now(),out:[],in:[]};
+  var d={id:id,date:F.date||today(),note:F.note.trim(),cur:F.cur,pSell:n(F.pSell),pBuy:n(F.pBuy),cash:null,ts:F.ts||Date.now(),out:[],in:[]};
   if(n(F.sellTotal)>0)d.sellTotal=n(F.sellTotal);
+  if(F.keepOpen&&inn.length)d.keepOpen=true;
   out.forEach(function(p){
     var leg={pid:p.pid||'',name:p.name.trim(),k:+p.k,w:n(p.w),m:n(p.m)};
     if(p.pid){var pc=byId(pieces,p.pid);if(pc){leg.name=pc.name;leg.k=pc.k;leg.w=n(pc.w);leg.basis=n(pc.cost);pc.status='sold';pc.soldDeal=id}}
@@ -467,8 +522,7 @@ function priceChart(c,L){
     '<div class="meter-l"><span>أدنى '+amt(vs[iMin],'',false)+' · '+dl(ks[iMin])+'</span><span>أعلى '+amt(vs[iMax],'',false)+' · '+dl(ks[iMax])+'</span></div>'+
     '<p class="note" style="margin:8px 0 0;text-align:center">النقط الذهبية = سعر 21 وقت عملياتك. الخط بيكمّل بسعر كل يوم تفتحي فيه التطبيق.</p>';
 }
-function profitChart(L){
-  var m={};L.forEach(function(d){var k=d.date.slice(0,7);m[k]=(m[k]||0)+calc(d).profit});
+function profitChart(m){
   var ks=Object.keys(m).sort();if(!ks.length)return '';
   var t=today().slice(0,7);if(ks[ks.length-1]<t)ks.push(t);
   var all=[],a=ks[0].split('-'),y=+a[0],mo=+a[1];
@@ -488,7 +542,7 @@ function profitChart(L){
    '<path d="'+area+'" fill="url(#pf)"/><path d="'+line+'" fill="none" stroke="var(--pos)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>'+dots+
    '<circle cx="'+X(li).toFixed(1)+'" cy="'+Y(vs[li]).toFixed(1)+'" r="4.5" fill="var(--pos)" stroke="var(--bg)" stroke-width="2"/>'+
    '<text x="'+(W-pr)+'" y="'+Math.max(10,Y(vs[li])-9).toFixed(1)+'" font-size="11" font-weight="700" fill="var(--pos)" text-anchor="end">'+fmt(vs[li])+'</text>'+labs+'</svg>'+
-   '<p class="note" style="margin:6px 0 0;text-align:center">مجموع الربح المتراكم شهرًا بشهر (القطع المباعة فقط).</p>';
+   '<p class="note" style="margin:6px 0 0;text-align:center">مجموع ربح الدورات المقفولة شهرًا بشهر (بشهر إعادة الشراء).</p>';
 }
 function renderHome(){
   var c=cfg.cur,P=p21(c),L=myDeals(),prof=0,cash=0;
@@ -501,7 +555,7 @@ function renderHome(){
   var g=g24(c)*selK/24,kp=P?pk(selK,c):0,kb=P?p21buy(c)*selK/21:0;
   var chips=KARATS.map(function(k){return '<button class="chip'+(k===selK?' on':'')+'" data-k="'+k+'">'+k+'</button>'}).join('');
   var liveTxt=live.ok?('حي · '+new Date(live.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):'يدوي';
-  var months={};L.forEach(function(d){var m=d.date.slice(0,7);months[m]=(months[m]||0)+calc(d).profit});
+  var CY=cycleStats(buildCycles(L)),months=CY.months,oc=CY.open;
   var ms=Object.keys(months).sort().reverse().slice(0,6),mx=Math.max.apply(null,ms.map(function(m){return Math.abs(months[m])}).concat([1]));
   var bars=ms.map(function(m){var v=months[m],mm=m.split('-');return '<div class="bar"><span>'+MONTHS[+mm[1]-1]+' '+mm[0].slice(2)+'</span><span class="t"><i style="width:'+Math.abs(v)/mx*100+'%;background:'+(v<0?'var(--neg)':'var(--gold-grad)')+'"></i></span><span style="text-align:end">'+amt(v,'',true)+'</span></div>'}).join('');
   var mxw=Math.max(openG,w21,1)*1.1;
@@ -512,8 +566,13 @@ function renderHome(){
      '<div class="cols c3">'+[24,21,18].map(function(k){return '<div><span>عيار '+k+'</span>'+amt(pk(k,c),'',false)+'<em>شراء '+fmt(p21buy(c)*k/21)+'</em></div>'}).join('')+'</div>'+
      '<div class="oz"><span>الأونصة العالمية</span><b class="num" dir="ltr">$ '+fmt(ounce())+'</b></div>':
      '<div class="empty">اكتبي سعر الأونصة من الإعدادات.</div>')+'</div>'+
-   '<div class="hero"><div class="lbl">ربح القطع المباعة</div><div class="big '+cl(prof)+'">'+amt(prof,CURN[c],true)+'</div>'+
-   '<div class="sub"><span>'+L.length+' عملية</span><span>·</span><span>فرق تقييم المخزون: '+(P?amt(unreal,'',true):'—')+'</span></div></div>'+
+   '<div class="hero"><div class="lbl">ربح الدورات المقفولة (بيع ← إعادة شراء)</div><div class="big '+cl(CY.profit)+'">'+amt(CY.profit,CURN[c],true)+'</div>'+
+   '<div class="sub"><span>'+amt(CY.pg,'جم',true)+'</span><span>·</span><span>'+CY.n+' دورة</span><span>·</span><span>'+L.length+' عملية</span></div>'+
+   '<div class="sub" style="margin-top:4px"><span>ربح القطع المباعة (بالتكلفة): '+amt(prof,'',true)+'</span><span>·</span><span>فرق تقييم المخزون: '+(P?amt(unreal,'',true):'—')+'</span></div></div>'+
+   (oc?'<div class="card" style="border-color:rgba(120,160,255,.35)"><h2>دورة مفتوحة · من '+oc.start.slice(8)+' '+MONTHS[+oc.start.slice(5,7)-1]+'</h2>'+
+     '<div class="grid2"><div><div class="note">بعتي (مكافئ 21)</div>'+amt(oc.outG,'جم',false)+'</div><div><div class="note">كاش معلّق</div>'+amt(oc.cash,'',true)+'</div></div>'+
+     (oc.inG>0?'<p class="note" style="margin:8px 0 0">اشتريتي لحد دلوقتي '+fmt(oc.inG)+' جم.</p>':'')+
+     '<p class="note" style="margin:8px 0 0">الربح هيتحسب أول ما تشتري وتقفلي الدورة.</p></div>':'')+
    '<div class="grid2"><div class="stat"><div class="l">صافي النقد من العمليات</div><div class="v">'+amt(cash,'',true)+'</div></div>'+
    '<div class="stat"><div class="l">مخزونك (مكافئ 21)</div><div class="v">'+amt(w21,'جم',false)+'</div></div></div>'+
    (openG>0&&P?'<div class="card"><h2>الميزان بالوزن (مكافئ 21)</h2>'+
@@ -523,8 +582,8 @@ function renderHome(){
      '<div style="text-align:center"><span class="gainpill '+(eqG<0?'neg':'')+'">مكسبك بالوزن '+sg(eqG)+' جم</span></div>'+
      '<p class="note" style="margin:10px 0 0;text-align:center">المخزون + النقد بالجرامات − وزن البداية، لو بعتي كل حاجة النهارده.</p></div>':'')+
    '<div class="card"><h2>سعر جرام 21 ('+CURN[c]+')</h2>'+priceChart(c,L)+'</div>'+
-   '<div class="card"><h2>الربح التراكمي ('+CURN[c]+')</h2>'+profitChart(L)+'</div>'+
-   '<div class="card"><h2>أرباح آخر الشهور</h2>'+(bars?'<div class="bars">'+bars+'</div>':'<div class="empty">لسه مفيش عمليات.</div>')+'</div>'+
+   '<div class="card"><h2>ربح الدورات التراكمي ('+CURN[c]+')</h2>'+profitChart(months)+'</div>'+
+   '<div class="card"><h2>ربح الدورات · آخر الشهور</h2>'+(bars?'<div class="bars">'+bars+'</div>':'<div class="empty">لسه مفيش دورات مقفولة.</div>')+'</div>'+
    '<details class="card" id="setBox"><summary>الإعدادات والمزامنة</summary>'+
     '<div class="row"><div class="f"><label for="sOz">الأونصة بالدولار (احتياطي لو مفيش اتصال)</label><input id="sOz" inputmode="decimal" value="'+(cfg.ounce||'')+'"></div>'+
     '<div class="f"><label for="sSar">دولار / ريال</label><input id="sSar" inputmode="decimal" value="'+(cfg.usdsar||'')+'"></div></div>'+
@@ -574,13 +633,33 @@ function dealTitle(d){
   var o=d.out.map(function(p){return p.name||'قطعة'}).join('، '),i=d.in.map(function(p){return p.name||'قطعة'}).join('، ');
   return d.out.length&&d.in.length?o+' ← '+i:(d.out.length?o:i);
 }
+var logView='ops';
+function dl2(k){return k.slice(8)+' '+MONTHS[+k.slice(5,7)-1]}
+function renderCycles(L){
+  var C=buildCycles(L).reverse(),u=CURN[cfg.cur];
+  if(!C.length)return '<div class="card empty">لسه مفيش دورات. أول ما تبيعي قطعة هتتفتح دورة، وتتقفل لما تشتري.</div>';
+  return C.map(function(c){
+    var rng=c.closed?(c.start===c.end?dl2(c.end):dl2(c.start)+' ← '+dl2(c.end)):('من '+dl2(c.start));
+    var right=c.closed?amt(c.profit,'',true)+'<small>ربح · '+sg(c.pg)+' جم</small>':'<span class="amt"><b>'+sg(c.cash)+'</b></span><small>كاش معلّق</small>';
+    return '<div class="dr"><div class="hd"><span class="badge '+(c.closed?'sell':'swap')+'">'+(c.closed?'مقفولة':'مفتوحة')+'</span>'+
+      '<div class="tt"><b>بعتي '+fmt(c.outG)+' جم ← اشتريتي '+fmt(c.inG)+' جم</b><span>'+rng+'</span></div>'+
+      '<div class="rt">'+right+'</div></div>'+
+      '<div class="more">'+c.deals.map(function(d){return '<p>'+dl2(d.date)+' · '+esc(dealTitle(d))+' · نقد '+amt(calc(d).cash,'',true)+'</p>'}).join('')+
+      '<p>فرق الوزن '+amt(c.wg,'جم',true)+' · صافي الكاش '+amt(c.cash,'',true)+'</p>'+
+      (c.making>0?'<p>مصنعية دفعتيها في الشراء '+amt(c.making,'',false)+' (محسوبة ضمن التكلفة)</p>':'')+
+      (c.closed?'<p>الربح = '+sg(c.wg)+' × '+fmt(c.P)+' (خام يوم الشراء) '+(c.cash<0?'−':'+')+' '+fmt(Math.abs(c.cash))+' = <b class="'+cl(c.profit)+'">'+sg(c.profit)+' '+u+'</b></p>':'<p>الربح هيظهر بعد الشراء.</p>')+
+      '</div></div>';
+  }).join('');
+}
 function renderLog(){
   var L=myDeals(),h='',cur='';
+  var sw='<div class="seg2" style="grid-template-columns:1fr 1fr" role="group"><button data-act="lv" data-v="ops" aria-pressed="'+(logView==='ops')+'">العمليات</button><button data-act="lv" data-v="cyc" aria-pressed="'+(logView==='cyc')+'">الدورات</button></div>';
   if(!L.length){$('#v-log').innerHTML='<div class="card empty">مفيش عمليات بعملة '+CURN[cfg.cur]+' لسه.</div>';return}
+  if(logView==='cyc'){$('#v-log').innerHTML=sw+renderCycles(L);return}
   var tot={};L.forEach(function(d){var m=d.date.slice(0,7);tot[m]=tot[m]||{n:0,p:0};tot[m].n++;tot[m].p+=calc(d).profit});
   L.forEach(function(d){
     var m=d.date.slice(0,7),k=calc(d),mm=m.split('-');
-    if(m!==cur){cur=m;h+='<div class="mh"><b>'+MONTHS[+mm[1]-1]+' '+mm[0]+'</b><span>'+tot[m].n+' عملية · ربح '+amt(tot[m].p,'',true)+'</span></div>'}
+    if(m!==cur){cur=m;h+='<div class="mh"><b>'+MONTHS[+mm[1]-1]+' '+mm[0]+'</b><span>'+tot[m].n+' عملية · ربح القطع '+amt(tot[m].p,'',true)+'</span></div>'}
     var kind=d.out.length&&d.in.length?'swap':(d.out.length?'sell':'buy'),kl={swap:'مبادلة',sell:'بيع',buy:'شراء'}[kind];
     var wt=(d.out.length?d.out:d.in).reduce(function(a,p){return a+n(p.w)},0);
     var right=kind==='buy'?amt(k.cash,'',true,''):amt(k.profit,'',true);
@@ -593,7 +672,7 @@ function renderLog(){
       '<p>النقد '+amt(k.cash,'',true)+' · فرق الوزن 21 '+amt(k.gold,'جم',true)+'</p>'+
       '<div class="acts"><button class="btn sm" data-act="edit">تعديل</button><button class="btn sm bad" data-act="del">حذف</button></div></div></div>';
   });
-  $('#v-log').innerHTML=h;
+  $('#v-log').innerHTML=sw+h;
 }
 function renderAll(){renderHome();renderCalc();renderStock();renderLog();if(!F)newForm();renderAdd();syncCur()}
 function syncCur(){document.querySelectorAll('[data-cur]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.cur===cfg.cur?'true':'false')})}
@@ -622,6 +701,7 @@ document.addEventListener('click',function(e){
   if(b.dataset.tab){showTab(b.dataset.tab);return}
   if(b.dataset.cur){if(cfg.cur===b.dataset.cur)return;cfg.cur=b.dataset.cur;saveAll();F=null;newSP();renderAll();return}
   var act=b.dataset.act;if(!act)return;
+  if(act==='lv'){logView=b.dataset.v;renderLog();return}
   if(act==='mode'){setMode(b.dataset.m);renderAdd();return}
   if(act==='fab'){if(!F||F.id)newForm();renderAdd();showTab('add');return}
   if(act==='add'){F[b.dataset.side].push(newLeg(b.dataset.side));renderAdd();return}
@@ -661,6 +741,7 @@ document.addEventListener('input',function(e){
 });
 document.addEventListener('change',function(e){
   var t=e.target,c=cfg.cur,pc=t.closest&&t.closest('.pc');
+  if(t.id==='fKeep'){F.keepOpen=t.checked;updateSum();return}
   if(pc&&t.dataset.f==='k'){F[pc.dataset.side][+pc.dataset.i].k=+t.value;updateSum();return}
   if(pc&&t.dataset.f==='pid'){var leg=F.out[+pc.dataset.i];leg.pid=t.value;if(leg.pid)fillLinked(leg);else{leg.name='';leg.w=''}renderAdd();return}
   if(/^c\d|^cP$/.test(t.id)){runCalc();return}
