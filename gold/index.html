@@ -178,7 +178,7 @@ nav button[aria-current="page"]{color:var(--gold);background:var(--gold-soft)}
 (function(){
 'use strict';
 var KARATS=[24,22,21,18,14,9], CURN={SAR:'ريال',EGP:'جنيه'};
-var cfg={cur:'SAR',ounce:0,usdsar:3.75,usdegp:0,local:{SAR:0,EGP:0},making:{SAR:0,EGP:0},spread:{SAR:0,EGP:0},dewan:{SAR:0,EGP:0}};
+var cfg={cur:'SAR',ounce:0,usdsar:3.75,usdegp:0,local:{SAR:0,EGP:0},making:{SAR:0,EGP:0},spread:{SAR:0,EGP:0},dewan:{SAR:0,EGP:0},cycFrom:{SAR:'',EGP:''}};
 var deals=[], pieces=[], tab='home', F=null, SP=null, live={ounce:0,egp:0,at:0,ok:false};
 var dirty=false, syncT=null, lastTs=0;
 
@@ -233,9 +233,18 @@ function calc(d){
    ربح الدورة = إجمالي البيع − تكلفة الاسترجاع. الزيادة في الوزن = مخزون جديد بتكلفته. */
 function legMaking(p){return n(p.w)*n(p.m)}
 function asc(a,b){return a.date===b.date?(a.ts||0)-(b.ts||0):(a.date<b.date?-1:1)}
+/* بداية حساب الدورات: عملية يحددها المستخدم، وإلا أول بيع للأسورة/الانسيال، وإلا من الأول */
+var START_RE=/سور|انسيال|إنسيال|انسيل/;
+function autoStart(L){var a=L.slice().sort(asc);for(var i=0;i<a.length;i++){if(a[i].out.some(function(p){return START_RE.test(p.name||'')}))return a[i]}return null}
+function cycleStart(L){
+  var v=(cfg.cycFrom||{})[cfg.cur]||'';
+  if(v==='*')return null;
+  if(v){var d=byId(L,v);if(d)return d}
+  return autoStart(L);
+}
 function buildCycles(L){
-  var out=[],open=null;
-  L.slice().sort(asc).forEach(function(d){
+  var out=[],open=null,st=cycleStart(L);
+  L.slice().sort(asc).filter(function(d){return !st||asc(d,st)>=0}).forEach(function(d){
     var k=calc(d),hasOut=d.out.length>0;
     if(!open&&!hasOut)return; /* شراء بفلوس جديدة: مش دورة */
     if(!open)open={id:d.id,deals:[],outG:0,inG:0,sell:0,buy:0,cash:0,making:0,start:d.date,closed:false};
@@ -267,7 +276,7 @@ function pieceMarket(p,c){return n(p.w)*p21buy(c)*(+p.k)/21}
 function snapshot(){return {v:2,ts:Date.now(),cfg:cfg,deals:deals,pieces:pieces}}
 function applySnapshot(s){
   if(!s)return;
-  if(s.cfg){for(var k in s.cfg){if(k==='local'||k==='making'||k==='spread'||k==='dewan')cfg[k]=Object.assign({SAR:0,EGP:0},s.cfg[k]);else cfg[k]=s.cfg[k]}}
+  if(s.cfg){for(var k in s.cfg){if(k==='local'||k==='making'||k==='spread'||k==='dewan')cfg[k]=Object.assign({SAR:0,EGP:0},s.cfg[k]);else if(k==='cycFrom')cfg[k]=Object.assign({SAR:'',EGP:''},s.cfg[k]);else cfg[k]=s.cfg[k]}}
   deals=s.deals||[];pieces=s.pieces||[];lastTs=s.ts||0;
 }
 function saveAll(){
@@ -642,7 +651,17 @@ function dealTitle(d){
 }
 var logView='ops';
 function dl2(k){return k.slice(8)+' '+MONTHS[+k.slice(5,7)-1]}
+function startCard(L){
+  var st=cycleStart(L),v=(cfg.cycFrom||{})[cfg.cur]||'';
+  var t=st?('الدورات محسوبة من '+dl2(st.date)+' '+st.date.slice(0,4)+' · '+esc(dealTitle(st))+(v?'':' <small>(أول بيع للأسورة/الانسيال)</small>')):'الدورات محسوبة من أول عملية';
+  return '<div class="card" style="padding:12px 14px"><p class="note" style="margin:0 0 8px">'+t+'</p>'+
+    (st?'<p class="note" style="margin:0 0 8px">العمليات اللي قبلها مش داخلة في الدورات.</p>':'')+'<p class="note" style="margin:0 0 8px">لتغيير البداية افتحي أي عملية بيع في السجل واضغطي «ابدأ الدورات من هنا».</p>'+
+    (st?'<button class="btn sm" data-act="cycall">احسب من أول عملية</button>':(autoStart(L)?'<button class="btn sm" data-act="cycauto">ابدأ من بيع الأسورة/الانسيال</button>':''))+'</div>';
+}
 function renderCycles(L){
+  return startCard(L)+renderCycleList(L);
+}
+function renderCycleList(L){
   var C=buildCycles(L).reverse(),u=CURN[cfg.cur];
   if(!C.length)return '<div class="card empty">لسه مفيش دورات. أول ما تبيعي قطعة هتتفتح دورة، وتتقفل لما تشتري.</div>';
   return C.map(function(c){
@@ -665,7 +684,7 @@ function renderLog(){
   var sw='<div class="seg2" style="grid-template-columns:1fr 1fr" role="group"><button data-act="lv" data-v="ops" aria-pressed="'+(logView==='ops')+'">العمليات</button><button data-act="lv" data-v="cyc" aria-pressed="'+(logView==='cyc')+'">الدورات</button></div>';
   if(!L.length){$('#v-log').innerHTML='<div class="card empty">مفيش عمليات بعملة '+CURN[cfg.cur]+' لسه.</div>';return}
   if(logView==='cyc'){$('#v-log').innerHTML=sw+renderCycles(L);return}
-  var tot={};L.forEach(function(d){var m=d.date.slice(0,7);tot[m]=tot[m]||{n:0,p:0};tot[m].n++;tot[m].p+=calc(d).profit});
+  var st=cycleStart(L),tot={};L.forEach(function(d){var m=d.date.slice(0,7);tot[m]=tot[m]||{n:0,p:0};tot[m].n++;tot[m].p+=calc(d).profit});
   L.forEach(function(d){
     var m=d.date.slice(0,7),k=calc(d),mm=m.split('-');
     if(m!==cur){cur=m;h+='<div class="mh"><b>'+MONTHS[+mm[1]-1]+' '+mm[0]+'</b><span>'+tot[m].n+' عملية · ربح القطع '+amt(tot[m].p,'',true)+'</span></div>'}
@@ -679,7 +698,7 @@ function renderLog(){
       '<div class="more">'+(d.note?'<p>'+esc(d.note)+'</p>':'')+
       (d.out.length?'<p>بعتي: '+lines(d.out)+'</p>':'')+(d.in.length?'<p>اشتريتي: '+lines(d.in)+'</p>':'')+
       '<p>النقد '+amt(k.cash,'',true)+' · فرق الوزن 21 '+amt(k.gold,'جم',true)+'</p>'+
-      '<div class="acts"><button class="btn sm" data-act="edit">تعديل</button><button class="btn sm bad" data-act="del">حذف</button></div></div></div>';
+      '<div class="acts">'+(d.out.length?(st&&st.id===d.id?'<span class="badge swap">بداية الدورات</span>':'<button class="btn sm" data-act="cycfrom">ابدأ الدورات من هنا</button>'):'')+'<button class="btn sm" data-act="edit">تعديل</button><button class="btn sm bad" data-act="del">حذف</button></div></div></div>';
   });
   $('#v-log').innerHTML=sw+h;
 }
@@ -728,6 +747,9 @@ document.addEventListener('click',function(e){
   if(act==='sellpc'&&it){newForm();F.out=[{pid:it.dataset.pid,name:'',k:21,w:'',m:cfg.making[cfg.cur]?String(cfg.making[cfg.cur]):'',cost:''}];F.in=[];F.mode='sell';fillLinked(F.out[0]);renderAdd();showTab('add');return}
   if(act==='editpc'&&it){var p=byId(pieces,it.dataset.pid);SP={id:p.id,name:p.name,k:p.k,w:String(p.w),cost:String(p.cost),date:p.date};renderStock();$('#spBox').open=true;$('#spBox').scrollIntoView();return}
   if(act==='delpc'&&it){var snP=JSON.stringify(pieces);pieces=pieces.filter(function(x){return x.id!==it.dataset.pid});saveAll();renderStock();renderHome();toastUndo('تم حذف القطعة',function(){pieces=JSON.parse(snP);saveAll();renderStock();renderHome()});return}
+  if(act==='cycfrom'&&it){cfg.cycFrom[cfg.cur]=it.dataset.id;saveAll();renderAll();toast('الدورات هتتحسب من العملية دي');return}
+  if(act==='cycall'){cfg.cycFrom[cfg.cur]='*';saveAll();renderAll();return}
+  if(act==='cycauto'){cfg.cycFrom[cfg.cur]='';saveAll();renderAll();return}
   if(act==='edit'&&it){var d=byId(deals,it.dataset.id);if(d){formFromDeal(d);renderAdd();showTab('add')}return}
   if(act==='del'&&it){
     var bl=blocked(it.dataset.id);if(bl){toast('القطعة "'+bl.name+'" اتباعت في عملية لاحقة');return}
