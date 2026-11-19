@@ -683,11 +683,17 @@ function renderHome(){
 function renderCalc(){
   var c=cfg.cur,P=p21(c);
   $('#v-calc').innerHTML=
+  '<div class="card"><div class="f" style="margin:0"><label for="cP">سعر جرام 21 (للحاسبة كلها)</label><input id="cP" inputmode="decimal" value="'+(P?r2(P):'')+'"></div></div>'+
+  '<div class="card"><h2>معايا مبلغ، يجيب كام وزن؟</h2>'+
+   '<div class="f"><label for="c4a">المبلغ ('+CURN[c]+')</label><input id="c4a" inputmode="decimal"></div>'+
+   '<div class="row"><div class="f"><label for="c4k">العيار</label><select id="c4k">'+kOpts(21)+'</select></div>'+
+   '<div class="f"><label for="c4m">مصنعية الشراء/جم</label><input id="c4m" inputmode="decimal" placeholder="0"></div></div>'+
+   '<div class="res" id="r4"></div></div>'+
   '<div class="card"><h2>سعر القطعة بالخام والمصنعية</h2>'+
    '<div class="row"><div class="f"><label for="c1k">العيار</label><select id="c1k">'+kOpts(21)+'</select></div><div class="f"><label for="c1w">الوزن (جم)</label><input id="c1w" inputmode="decimal"></div></div>'+
    '<div class="row"><div class="f"><label for="c1t">نوع المصنعية</label><select id="c1t"><option value="g">لكل جرام</option><option value="p">نسبة من الخام %</option></select></div>'+
    '<div class="f"><label for="c1m">المصنعية</label><input id="c1m" inputmode="decimal" value="'+(cfg.making[c]||'')+'"></div></div>'+
-   '<div class="f"><label for="cP">سعر جرام 21</label><input id="cP" inputmode="decimal" value="'+(P?r2(P):'')+'"></div><div class="res" id="r1"></div></div>'+
+   '<div class="res" id="r1"></div></div>'+
   '<div class="card"><h2>استخراج المصنعية من السعر النهائي</h2>'+
    '<div class="row3"><div class="f"><label for="c2k">العيار</label><select id="c2k">'+kOpts(21)+'</select></div><div class="f"><label for="c2w">الوزن</label><input id="c2w" inputmode="decimal"></div><div class="f"><label for="c2p">السعر</label><input id="c2p" inputmode="decimal"></div></div><div class="res" id="r2"></div></div>'+
   '<div class="card"><h2>مكافئ الوزن بالعيارات</h2>'+
@@ -701,6 +707,12 @@ function runCalc(){
   var k2=+$('#c2k').value,w2=n($('#c2w').value),p2=n($('#c2p').value),raw2=w2*P*k2/21,mk2=p2-raw2;
   $('#r2').innerHTML='<div><span>قيمة الخام</span><b class="num">'+fmt(raw2)+'</b></div><div class="tot"><span>إجمالي المصنعية</span><b class="num '+cl(mk2)+'">'+sg(mk2)+'</b></div>'+
     '<div><span>المصنعية للجرام</span><b class="num">'+fmt(w2?mk2/w2:0)+'</b></div><div><span>نسبتها من الخام</span><b class="num">'+fmt(raw2?mk2/raw2*100:0)+'%</b></div>';
+  /* المبلغ ÷ (سعر جرام العيار + المصنعية) */
+  var a4=n($('#c4a').value),k4=+$('#c4k').value,m4=n($('#c4m').value),g4=P*k4/21,pg4=g4+m4,w4=pg4>0?a4/pg4:0;
+  $('#r4').innerHTML='<div><span>سعر الجرام عيار '+k4+(m4?' + المصنعية':'')+'</span><b class="num">'+fmt(pg4)+'</b></div>'+
+    '<div class="tot"><span>يجيبلك</span><b class="num">'+fmt(w4)+' جم عيار '+k4+'</b></div>'+
+    (m4?'<div><span>من غير مصنعية (خام)</span><b class="num">'+fmt(g4>0?a4/g4:0)+' جم</b></div><div><span>المصنعية من المبلغ</span><b class="num">'+fmt(w4*m4)+'</b></div>':'')+
+    (k4!==21?'<div><span>يعادل عيار 21</span><b class="num">'+fmt(w4*k4/21)+' جم</b></div>':'');
   var k3=+$('#c3k').value,w3=n($('#c3w').value);
   $('#r3').innerHTML=KARATS.map(function(t){return '<div><span><span class="kbadge">'+t+'</span></span><b class="num">'+fmt(w3*k3/t)+' جم</b></div>'}).join('')+'<div class="tot"><span>قيمة الخام</span><b class="num">'+fmt(w3*P*k3/21)+' '+CURN[cfg.cur]+'</b></div>';
 }
