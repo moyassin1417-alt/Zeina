@@ -629,6 +629,7 @@ details.expander[open] summary{margin-bottom:4px}
 
 <div class="section tabview" data-tab="assets">
   <h2>الأصول الشخصية <span class="tot" id="assetsTotal"></span></h2>
+  <div id="goldStockSummary"></div>
   <div id="assetsList"></div>
   <div class="formrow">
     <input id="assetName" placeholder="اسم الأصل (سيارة، عقار...)">
@@ -1280,6 +1281,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6
 let activeTab = 'home';
 function showTab(tab){
   activeTab = tab;
+  if(tab==='assets'){ try{ renderGoldStock(); refreshGoldStock(); }catch(e){} }
   document.querySelectorAll('.tabview').forEach(el=>{
     el.classList.toggle('active', el.dataset.tab === tab);
   });
@@ -2062,6 +2064,7 @@ function render(){
   document.getElementById('liabTotal').textContent = fmt(liabTotal);
 
   renderList('assetsList','assets');
+  renderGoldStock();
   renderList('liabList','liabilities');
   renderNuqta();
   renderGoals();
@@ -2267,6 +2270,51 @@ function donutHtml(rows, total){
     <div class="donut" style="background:conic-gradient(${stops})"><div class="donutCenter">${fmt(total)}</div></div>
     <div style="flex:1; display:flex; flex-wrap:wrap; gap:6px 12px">${legend}</div>
   </div>`;
+}
+/* ملخص مخزون «دفتر الذهب»: إجمالي الوزن (مكافئ 21) وقيمته بسعر شراء الكسر، زي صفحة المخزون هناك */
+function goldLedgerSnapshot(){ try{ return JSON.parse(localStorage.getItem('gold_data_v2')||'null'); }catch(e){ return null; } }
+function goldLedgerP21buy(cfg, cur){
+  const num = v => Number(v)||0;
+  let p = num(cfg.local && cfg.local[cur]);
+  if(!(p>0)){
+    let live = {}; try{ live = JSON.parse(localStorage.getItem('gold_live')||'{}')||{}; }catch(e){}
+    const oz = num(live.ounce) || num(cfg.ounce);
+    const rate = cur==='SAR' ? num(cfg.usdsar) : (num(live.egp) || num(cfg.usdegp));
+    if(oz>0 && rate>0) p = oz/31.1034768*rate*21/24 + num(cfg.dewan && cfg.dewan[cur]);
+    else if(cur==='SAR' && goldPricePerGram21k) p = goldPricePerGram21k;
+  }
+  return p>0 ? Math.max(0, p - num(cfg.spread && cfg.spread[cur])) : 0;
+}
+function renderGoldStock(){
+  const el = document.getElementById('goldStockSummary');
+  if(!el) return;
+  const snap = goldLedgerSnapshot();
+  const stock = snap && Array.isArray(snap.pieces) ? snap.pieces.filter(p=>p.status==='stock') : [];
+  if(!stock.length){ el.innerHTML = ''; return; }
+  const cfg = snap.cfg || {};
+  el.innerHTML = ['SAR','EGP'].map(cur=>{
+    const L = stock.filter(p=>(p.cur||'SAR')===cur);
+    if(!L.length) return '';
+    const w21 = L.reduce((a,p)=>a + (Number(p.w)||0)*(Number(p.k)||21)/21, 0);
+    const P = goldLedgerP21buy(cfg, cur);
+    const val = w21 * P;
+    const money = cur==='SAR' ? fmt(val) : fmtEGP(val);
+    return `
+    <div class="row" style="cursor:pointer" onclick="location.href='gold/'">
+      <div class="name">🪙 مخزون الذهب${cur==='EGP'?' (جنيه)':''} · ${w21.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} جم (مكافئ 21)</div>
+      <div class="amt">${P ? money : '—'}</div>
+    </div>`;
+  }).join('');
+}
+async function refreshGoldStock(){
+  const bin = localStorage.getItem('gold_bin'), key = localStorage.getItem('gold_key') || localStorage.getItem('zainah_key');
+  if(!bin || !key || localStorage.getItem('gold_dirty')==='1') return;
+  try{
+    const r = await fetch('https://api.jsonbin.io/v3/b/'+bin+'/latest', {headers:{'X-Master-Key':key}});
+    if(!r.ok) return;
+    const j = await r.json(), s = j.record, cur = goldLedgerSnapshot();
+    if(s && s.ts && (!cur || !cur.ts || s.ts > cur.ts)){ localStorage.setItem('gold_data_v2', JSON.stringify(s)); renderGoldStock(); }
+  }catch(e){}
 }
 function renderList(elId, key){
   const el = document.getElementById(elId);
